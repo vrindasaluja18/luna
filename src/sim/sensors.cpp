@@ -1,10 +1,10 @@
-#include "slamcore/sim/sensors.hpp"
+#include "luna/sim/sensors.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
-namespace sc {
+namespace luna {
 namespace sim {
 
 namespace {
@@ -369,4 +369,4 @@ OdomSample OdomEmulator::measure(Scalar t, Scalar d_forward_true, Scalar d_yaw_t
 }
 
 }  // namespace sim
-}  // namespace sc
+}  // namespace luna

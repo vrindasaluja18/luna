@@ -1,4 +1,4 @@
-// SLAMCore-8G -- backend tests: pose-graph Jacobians, convergence, robustness,
+// LUNA -- backend tests: pose-graph Jacobians, convergence, robustness,
 // loop-closure verification, and trajectory metrics.
 //
 // The Jacobian test is the important one. A wrong analytic Jacobian still
@@ -10,14 +10,14 @@
 #include <cmath>
 #include <vector>
 
-#include "slamcore/backend/loop_close.hpp"
-#include "slamcore/backend/pose_graph.hpp"
-#include "slamcore/bench/trajectory.hpp"
-#include "slamcore/core/se2.hpp"
-#include "slamcore/core/stats.hpp"
+#include "luna/backend/loop_close.hpp"
+#include "luna/backend/pose_graph.hpp"
+#include "luna/bench/trajectory.hpp"
+#include "luna/core/se2.hpp"
+#include "luna/core/stats.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
+using namespace luna;
 
 namespace {
 
@@ -81,7 +81,7 @@ void testEdgeJacobians() {
       p[0] = pose2Update(poses[0], d);
       const Vec3 rm = edgeResidual(e, p);
       const Vec3 fd = (rp - rm) / (2.0 * eps);
-      SC_NEAR((fd - Ji.col(k)).norm(), 0.0, 1e-6);
+      LUNA_NEAR((fd - Ji.col(k)).norm(), 0.0, 1e-6);
 
       // Central difference in node j.
       p = poses;
@@ -92,7 +92,7 @@ void testEdgeJacobians() {
       p[1] = pose2Update(poses[1], d);
       const Vec3 rm2 = edgeResidual(e, p);
       const Vec3 fd2 = (rp2 - rm2) / (2.0 * eps);
-      SC_NEAR((fd2 - Jj.col(k)).norm(), 0.0, 1e-6);
+      LUNA_NEAR((fd2 - Jj.col(k)).norm(), 0.0, 1e-6);
     }
   }
 }
@@ -138,8 +138,8 @@ void testPoseGraphRecovery() {
   noisy.addEdge(loop);
 
   const backend::GraphResult res = noisy.optimize();
-  SC_CHECK(res.ok);
-  SC_CHECK(res.chi2_final < res.chi2_initial);
+  LUNA_CHECK(res.ok);
+  LUNA_CHECK(res.chi2_final < res.chi2_initial);
 
   // Every node must land back on the generating trajectory.
   Scalar worst = 0;
@@ -147,7 +147,7 @@ void testPoseGraphRecovery() {
     const Pose2& got = noisy.pose(static_cast<Index>(i));
     worst = std::max(worst, std::hypot(got.x - truth[i].x, got.y - truth[i].y));
   }
-  SC_NEAR(worst, 0.0, 1e-4);
+  LUNA_NEAR(worst, 0.0, 1e-4);
 }
 
 /// A single grossly wrong loop closure must be down-weighted by the robust
@@ -192,14 +192,14 @@ void testRobustness() {
 
   backend::PoseGraph robust = build(true);
   const backend::GraphResult res = robust.optimize();
-  SC_CHECK(res.ok);
+  LUNA_CHECK(res.ok);
   // The bad edge must be flagged as the worst residual.
-  SC_CHECK(!res.outliers.empty());
-  SC_CHECK(res.edge_chi2[res.outliers[0]] > 100.0);
+  LUNA_CHECK(!res.outliers.empty());
+  LUNA_CHECK(res.edge_chi2[res.outliers[0]] > 100.0);
 
   backend::PoseGraph plain = build(false);
   const backend::GraphResult res_plain = plain.optimize();
-  SC_CHECK(res_plain.ok);
+  LUNA_CHECK(res_plain.ok);
 
   // Measure how far each trajectory sags away from the straight line it should
   // be. The robust run must sag substantially less.
@@ -212,9 +212,9 @@ void testRobustness() {
   };
   const Scalar sag_robust = sag(robust);
   const Scalar sag_plain = sag(plain);
-  SC_CHECK(sag_robust < 0.5 * sag_plain);
+  LUNA_CHECK(sag_robust < 0.5 * sag_plain);
   // And the robust trajectory must stay close to the line.
-  SC_CHECK(sag_robust < 0.4);
+  LUNA_CHECK(sag_robust < 0.4);
 }
 
 /// 3D-3D RANSAC must recover a known transform and reject a scrambled one.
@@ -232,10 +232,10 @@ void testRansacVerification() {
   Mat4 T;
   std::vector<int> inliers;
   Size attempts = 0;
-  SC_CHECK(backend::verifyRansac(a, b, opt, &T, &inliers, &attempts));
-  SC_CHECK(inliers.size() >= 38);
-  SC_NEAR((T.topLeftCorner<3, 3>() - R).norm(), 0.0, 1e-6);
-  SC_NEAR((T.topRightCorner<3, 1>() - t).norm(), 0.0, 1e-6);
+  LUNA_CHECK(backend::verifyRansac(a, b, opt, &T, &inliers, &attempts));
+  LUNA_CHECK(inliers.size() >= 38);
+  LUNA_NEAR((T.topLeftCorner<3, 3>() - R).norm(), 0.0, 1e-6);
+  LUNA_NEAR((T.topRightCorner<3, 1>() - t).norm(), 0.0, 1e-6);
 
   // With a third of the correspondences randomised, RANSAC must still find
   // the true transform and report it through the inlier set.
@@ -244,9 +244,9 @@ void testRansacVerification() {
     b2[i * 3] = Vec3(rng.uniform(-8, 8), rng.uniform(-8, 8), rng.uniform(-8, 8));
   }
   std::vector<int> inliers2;
-  SC_CHECK(backend::verifyRansac(a, b2, opt, &T, &inliers2, &attempts));
-  SC_CHECK(inliers2.size() >= 24);
-  SC_NEAR((T.topRightCorner<3, 1>() - t).norm(), 0.0, 1e-3);
+  LUNA_CHECK(backend::verifyRansac(a, b2, opt, &T, &inliers2, &attempts));
+  LUNA_CHECK(inliers2.size() >= 24);
+  LUNA_NEAR((T.topRightCorner<3, 1>() - t).norm(), 0.0, 1e-3);
 }
 
 /// ATE against a trajectory that is exactly the ground truth must be zero, and
@@ -259,27 +259,27 @@ void testAte() {
 
   // Exact copy: zero error.
   bench::AteResult exact = bench::absoluteTrajectoryError(truth, truth);
-  SC_CHECK(exact.ok);
-  SC_NEAR(exact.rmse, 0.0, 1e-12);
-  SC_NEAR(exact.percent_of_distance, 0.0, 1e-12);
+  LUNA_CHECK(exact.ok);
+  LUNA_NEAR(exact.rmse, 0.0, 1e-12);
+  LUNA_NEAR(exact.percent_of_distance, 0.0, 1e-12);
 
   // A constant 0.3 m offset in y: RMSE must be exactly 0.3.
   bench::Trajectory off = truth;
   for (auto& p : off) p.pose.y += 0.3;
   bench::AteResult shifted = bench::absoluteTrajectoryError(off, truth);
-  SC_CHECK(shifted.ok);
-  SC_NEAR(shifted.rmse, 0.3, 1e-9);
-  SC_NEAR(shifted.max, 0.3, 1e-9);
+  LUNA_CHECK(shifted.ok);
+  LUNA_NEAR(shifted.rmse, 0.3, 1e-9);
+  LUNA_NEAR(shifted.max, 0.3, 1e-9);
   // Path length is 10 m, so 0.3 m is 3 percent of distance.
-  SC_NEAR(shifted.path_length, 10.0, 1e-9);
-  SC_NEAR(shifted.percent_of_distance, 3.0, 1e-6);
+  LUNA_NEAR(shifted.path_length, 10.0, 1e-9);
+  LUNA_NEAR(shifted.percent_of_distance, 3.0, 1e-6);
 
   // An estimate outside the ground-truth time span must be counted as
   // unmatched, never extrapolated.
   bench::Trajectory late = truth;
   late.push_back(bench::TrajectoryPoint{100.0, Pose2{0, 0, 0}});
   bench::AteResult l = bench::absoluteTrajectoryError(late, truth);
-  SC_CHECK(l.unmatched == 1);
+  LUNA_CHECK(l.unmatched == 1);
 }
 
 /// RPE must detect a pure scale error that ATE at the endpoints would miss.
@@ -293,11 +293,11 @@ void testRpe() {
   bench::EvalOptions opt;
   opt.rpe_interval = 1.0;
   bench::RpeResult r = bench::relativePoseError(est, truth, opt);
-  SC_CHECK(r.ok);
+  LUNA_CHECK(r.ok);
   // Over a 1 s interval the truth moves 1 m and the estimate 1.1 m, so the
   // relative error is 0.1 m.
-  SC_NEAR(r.mean_trans, 0.1, 1e-6);
-  SC_CHECK(r.pairs > 80);
+  LUNA_NEAR(r.mean_trans, 0.1, 1e-6);
+  LUNA_CHECK(r.pairs > 80);
 }
 
 /// The descriptor database must stay bounded.
@@ -314,8 +314,8 @@ void testLoopDbBound() {
     kf.points.push_back(mp);
     lc.addKeyframe(kf);
   }
-  SC_CHECK(lc.size() == 10);
-  SC_CHECK(lc.stats().db_evictions == 90);
+  LUNA_CHECK(lc.size() == 10);
+  LUNA_CHECK(lc.stats().db_evictions == 90);
 }
 
 /// A closure between two identical keyframes must be found, and one between
@@ -350,13 +350,13 @@ void testLoopClosureMatch() {
   backend::Keyframe kf2 = makeKf(20, 0, 0, 0, &rng);
   kf2.points = kf0.points;
   backend::LoopClosure lc_out;
-  SC_CHECK(lc.query(kf2, &lc_out));
-  SC_CHECK(lc_out.inliers >= 8);
+  LUNA_CHECK(lc.query(kf2, &lc_out));
+  LUNA_CHECK(lc_out.inliers >= 8);
 
   // An unrelated keyframe with random descriptors must not close a loop.
   backend::Keyframe kf3 = makeKf(30, 40, 40, 1.0, &rng);
   backend::LoopClosure bad;
-  SC_CHECK(!lc.query(kf3, &bad));
+  LUNA_CHECK(!lc.query(kf3, &bad));
 }
 
 /// A descriptor match must be rejected by the ratio test when the two best
@@ -373,11 +373,11 @@ void testDescriptorRatio() {
   b[0].desc.w[0] = 0xFFFFFFFFFFFFFFFEull;
   b[1].desc.w[0] = 0xFFFFFFFFFFFFFFFDull;
   std::vector<std::pair<int, int>> matches;
-  SC_CHECK(lc.matchDescriptors(a, b, &matches) == 0);
+  LUNA_CHECK(lc.matchDescriptors(a, b, &matches) == 0);
 
   // With one clearly better candidate the match must be accepted.
   b[1].desc.w[0] = 0x0000000000000000ull;
-  SC_CHECK(lc.matchDescriptors(a, b, &matches) == 1);
+  LUNA_CHECK(lc.matchDescriptors(a, b, &matches) == 1);
 }
 
 /// The accepted closure's transform must be the one *measured from the matched
@@ -441,18 +441,18 @@ void testLoopClosureTransformConvention() {
 
   lc.addKeyframe(stored);
   backend::LoopClosure out;
-  SC_CHECK(lc.query(query, &out));
+  LUNA_CHECK(lc.query(query, &out));
 
   // z must reproduce the relative pose the two views actually have.
   const Mat3 measured = se2Exp(out.z);
   const Vec3 err = se2Log(se2Inverse(T_rel_mat) * measured);
-  SC_CHECK(std::hypot(err.x(), err.y()) < 0.02);
-  SC_CHECK(std::abs(err.z()) < 0.02);
+  LUNA_CHECK(std::hypot(err.x(), err.y()) < 0.02);
+  LUNA_CHECK(std::abs(err.z()) < 0.02);
 
   // Guard against the specific regression: using the estimated poses would give
   // a transform nowhere near T_rel.
   const Pose2 est_rel = pose2Relative(stored.pose, query.pose);
-  SC_CHECK(std::hypot(est_rel.x - T_rel.x, est_rel.y - T_rel.y) > 5.0);
+  LUNA_CHECK(std::hypot(est_rel.x - T_rel.x, est_rel.y - T_rel.y) > 5.0);
 }
 
 void run() {
@@ -470,4 +470,4 @@ void run() {
 
 }  // namespace
 
-SC_TEST_MAIN("test_backend")
+LUNA_TEST_MAIN("test_backend")

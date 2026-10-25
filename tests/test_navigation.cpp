@@ -1,4 +1,4 @@
-// SLAMCore-8G -- planning, topology and control tests.
+// LUNA -- planning, topology and control tests.
 //
 // These are the tests that make the safety claims checkable rather than
 // aspirational: a collision-free closed-loop run, a safe stop under an injected
@@ -7,14 +7,14 @@
 #include <cmath>
 #include <vector>
 
-#include "slamcore/app/navigation.hpp"
-#include "slamcore/control/mpc.hpp"
-#include "slamcore/planning/planner.hpp"
-#include "slamcore/sim/world.hpp"
-#include "slamcore/topology/morse.hpp"
+#include "luna/app/navigation.hpp"
+#include "luna/control/mpc.hpp"
+#include "luna/planning/planner.hpp"
+#include "luna/sim/world.hpp"
+#include "luna/topology/morse.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
+using namespace luna;
 
 namespace {
 
@@ -140,14 +140,14 @@ void testChanceConstraintMonotonic() {
   const Scalar v0 = mpc.chanceConstrainedSpeed(w, 0.0);
   const Scalar v1 = mpc.chanceConstrainedSpeed(w, 0.05);
   const Scalar v2 = mpc.chanceConstrainedSpeed(w, 0.15);
-  SC_CHECK(v0 >= v1);
-  SC_CHECK(v1 >= v2);
-  SC_CHECK(v0 > 0.0);
+  LUNA_CHECK(v0 >= v1);
+  LUNA_CHECK(v1 >= v2);
+  LUNA_CHECK(v0 > 0.0);
   // A corridor narrower than the body is not drivable at any confidence.
-  SC_NEAR(mpc.chanceConstrainedSpeed(0.30, 0.0), 0.0, 1e-12);
+  LUNA_NEAR(mpc.chanceConstrainedSpeed(0.30, 0.0), 0.0, 1e-12);
   // An empty corridor with no uncertainty is capped by the vehicle, not by the
   // corridor: the constraint must not be the binding limit in open space.
-  SC_NEAR(mpc.chanceConstrainedSpeed(20.0, 0.0), veh.max_speed, 1e-9);
+  LUNA_NEAR(mpc.chanceConstrainedSpeed(20.0, 0.0), veh.max_speed, 1e-9);
 }
 
 void testCovarianceDetMonotonic() {
@@ -156,17 +156,17 @@ void testCovarianceDetMonotonic() {
   const Scalar a = control::MpcController::covarianceDet(e);
   e.sigma_yy = 0.04;
   const Scalar b = control::MpcController::covarianceDet(e);
-  SC_CHECK(b > a);
+  LUNA_CHECK(b > a);
   e.sigma_xx = e.sigma_yy = e.sigma_thth = 0.0;
-  SC_NEAR(control::MpcController::covarianceDet(e), 0.0, 1e-15);
+  LUNA_NEAR(control::MpcController::covarianceDet(e), 0.0, 1e-15);
 }
 
 void testSafeStopUnderFault() {
   // Fault injection: the estimate covariance grows without bound. The watchdog
   // must stop the vehicle and it must not collide while doing so.
   const LoopResult r = driveLoop(sim::WorldType::kRooms, 6, 1e-4, 2.5e-5, /*fault_after=*/200);
-  SC_CHECK(r.safe_stopped);
-  SC_CHECK(!r.collided);
+  LUNA_CHECK(r.safe_stopped);
+  LUNA_CHECK(!r.collided);
 }
 
 void testClosedLoopNoCollision() {
@@ -187,16 +187,16 @@ void testClosedLoopNoCollision() {
     const LoopResult r = driveLoop(c.type, 6, 1e-4, 2.5e-5);
     std::printf("  %-14s rms=%.3f m  max=%.3f m  dist=%.1f/%.1f m  solve=%.1f ms\n", c.name,
                 r.rms, r.max_err, r.distance, r.plan_length, r.mean_solve_ms);
-    SC_CHECK(!r.collided);
+    LUNA_CHECK(!r.collided);
     // The route must be *completed*, not merely started. A distance floor of a
     // few metres passed while the vehicle was stalling 8 m into a 128 m plan --
     // the assertion was satisfied by the failure it existed to catch. The
     // honest bound is the plan's own length.
-    SC_CHECK(r.reached_goal);
-    SC_CHECK(r.distance > 0.9 * r.plan_length);
+    LUNA_CHECK(r.reached_goal);
+    LUNA_CHECK(r.distance > 0.9 * r.plan_length);
     // Tracking accuracy in the simulator, which is the figure the contract
     // quotes. The worlds are deliberately tight, so this is a demanding bound.
-    SC_CHECK(r.rms < 0.60);
+    LUNA_CHECK(r.rms < 0.60);
   }
 }
 
@@ -222,14 +222,14 @@ void testVelocityProfileRespectsBraking() {
   control::MpcController mpc(sim::VehicleParams(), opt);
   const std::vector<Scalar> prof = mpc.buildVelocityProfile(plan, est, 2.5);
   const std::vector<Scalar> s_axis = planning::arcLength(plan.path);
-  SC_CHECK(prof.size() == plan.path.size());
+  LUNA_CHECK(prof.size() == plan.path.size());
   for (Size i = 0; i + 1 < prof.size(); ++i) {
     const Scalar ds = s_axis[i + 1] - s_axis[i];
     const Scalar reachable = std::sqrt(prof[i + 1] * prof[i + 1] + 2.0 * opt.a_brake * ds);
-    SC_CHECK(prof[i] <= reachable + 1e-6);
+    LUNA_CHECK(prof[i] <= reachable + 1e-6);
   }
   // Monotone in the sense that matters: no point exceeds the ceiling.
-  for (Scalar v : prof) SC_CHECK(v <= 2.5 + 1e-9);
+  for (Scalar v : prof) LUNA_CHECK(v <= 2.5 + 1e-9);
 }
 
 void testPlannerClearanceAndDrivability() {
@@ -263,12 +263,12 @@ void testPlannerClearanceAndDrivability() {
       }
     const planning::Plan plan =
         planner.plan(nodes[static_cast<Size>(a)].p, nodes[static_cast<Size>(b)].p);
-    SC_CHECK(plan.ok());
+    LUNA_CHECK(plan.ok());
     if (!plan.ok()) continue;
-    SC_CHECK(plan.clearance.size() == plan.path.size());
-    SC_CHECK(plan.stats.min_clearance_along > half_diag);
+    LUNA_CHECK(plan.clearance.size() == plan.path.size());
+    LUNA_CHECK(plan.stats.min_clearance_along > half_diag);
     const std::vector<Scalar> k = planning::CorridorPlanner::curvature(plan.path);
-    for (Scalar v : k) SC_CHECK(v <= max_kappa + 1e-6);
+    for (Scalar v : k) LUNA_CHECK(v <= max_kappa + 1e-6);
   }
 }
 
@@ -287,8 +287,8 @@ void testMorseEulerRelation() {
     if (n.type == topology::CriticalType::kMaximum) ++maxima;
     if (n.type == topology::CriticalType::kSaddle) ++saddles;
   }
-  SC_CHECK(maxima - saddles == 1);
-  SC_CHECK(maxima >= 2);
+  LUNA_CHECK(maxima - saddles == 1);
+  LUNA_CHECK(maxima >= 2);
 }
 
 void testStampRadiusExceedsPlanClearance() {
@@ -297,8 +297,8 @@ void testStampRadiusExceedsPlanClearance() {
   // clearance, or the centreline of the vehicle's own trail falls below the
   // threshold and the map fragments into islands no route can cross.
   const app::NavigationOptions opt;
-  SC_CHECK(opt.stamp_free_radius_m > opt.plan.min_clearance);
-  SC_CHECK(opt.stamp_free_radius_m > opt.plan.preferred_clearance * 0.5);
+  LUNA_CHECK(opt.stamp_free_radius_m > opt.plan.min_clearance);
+  LUNA_CHECK(opt.stamp_free_radius_m > opt.plan.preferred_clearance * 0.5);
 }
 
 void testNavigateReconstructedMapIsHonest() {
@@ -339,11 +339,11 @@ void testNavigateReconstructedMapIsHonest() {
                 planning::toString(r.stats.plan_status), r.stats.plan_length,
                 r.stats.drive_distance);
     // An accepted plan carries a real route.
-    SC_CHECK(r.stats.plan_length > 1.0);
-    SC_CHECK(r.planned_path.size() >= 2);
+    LUNA_CHECK(r.stats.plan_length > 1.0);
+    LUNA_CHECK(r.planned_path.size() >= 2);
     // And the closed loop, run on the real world, reaches the end of it.
-    SC_CHECK(r.stats.drive_distance > 0.8 * r.stats.plan_length);
-    SC_CHECK(r.stats.collisions == 0);
+    LUNA_CHECK(r.stats.drive_distance > 0.8 * r.stats.plan_length);
+    LUNA_CHECK(r.stats.collisions == 0);
   }
 }
 
@@ -361,4 +361,4 @@ void run() {
 
 }  // namespace
 
-SC_TEST_MAIN("test_navigation")
+LUNA_TEST_MAIN("test_navigation")

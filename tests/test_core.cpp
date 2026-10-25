@@ -1,4 +1,4 @@
-// SLAMCore-8G -- core math tests: Lie groups, QP, sparse solve, allocators.
+// LUNA -- core math tests: Lie groups, QP, sparse solve, allocators.
 //
 // The SE(3) tests are the load-bearing ones: every Jacobian in the backend
 // depends on exp/log being exact inverses and on the Adjoint identity holding,
@@ -8,15 +8,15 @@
 #include <random>
 #include <vector>
 
-#include "slamcore/core/alloc.hpp"
-#include "slamcore/core/qp.hpp"
-#include "slamcore/core/se2.hpp"
-#include "slamcore/core/se3.hpp"
-#include "slamcore/core/sparse.hpp"
-#include "slamcore/core/stats.hpp"
+#include "luna/core/alloc.hpp"
+#include "luna/core/qp.hpp"
+#include "luna/core/se2.hpp"
+#include "luna/core/se3.hpp"
+#include "luna/core/sparse.hpp"
+#include "luna/core/stats.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
+using namespace luna;
 
 namespace {
 
@@ -26,12 +26,12 @@ void testSo3() {
     const Vec3 phi = Vec3(rng.gaussian(1.0), rng.gaussian(1.0), rng.gaussian(1.0));
     const Mat3 R = so3Exp(phi);
     // Exp must produce a rotation: orthonormal with determinant +1.
-    SC_NEAR((R * R.transpose() - Mat3::Identity()).norm(), 0.0, 1e-12);
-    SC_NEAR(R.determinant(), 1.0, 1e-12);
+    LUNA_NEAR((R * R.transpose() - Mat3::Identity()).norm(), 0.0, 1e-12);
+    LUNA_NEAR(R.determinant(), 1.0, 1e-12);
     // Log must invert Exp. Rotation vectors are only unique up to |phi| <= pi,
     // so compare the rotations they generate rather than the vectors.
     const Vec3 back = so3Log(R);
-    SC_NEAR((so3Exp(back) - R).norm(), 0.0, 1e-10);
+    LUNA_NEAR((so3Exp(back) - R).norm(), 0.0, 1e-10);
   }
 }
 
@@ -43,20 +43,20 @@ void testSe3() {
     xi.tail<3>() = Vec3(rng.gaussian(0.7), rng.gaussian(0.7), rng.gaussian(0.7));
     const Mat4 T = se3Exp(xi);
     // The rotation block is a rotation and the bottom row is exact.
-    SC_NEAR(rotationOf(T).determinant(), 1.0, 1e-12);
-    SC_NEAR((T.row(3) - Eigen::RowVector4d(0, 0, 0, 1)).norm(), 0.0, 1e-14);
+    LUNA_NEAR(rotationOf(T).determinant(), 1.0, 1e-12);
+    LUNA_NEAR((T.row(3) - Eigen::RowVector4d(0, 0, 0, 1)).norm(), 0.0, 1e-14);
     // Round trip through the log.
-    SC_NEAR((se3Exp(se3Log(T)) - T).norm(), 0.0, 1e-9);
+    LUNA_NEAR((se3Exp(se3Log(T)) - T).norm(), 0.0, 1e-9);
   }
   // Identity and inverse.
-  SC_NEAR((se3Exp(Vec6::Zero()) - Mat4::Identity()).norm(), 0.0, 1e-14);
+  LUNA_NEAR((se3Exp(Vec6::Zero()) - Mat4::Identity()).norm(), 0.0, 1e-14);
   Rng rng2(99);
   for (int i = 0; i < 50; ++i) {
     Vec6 xi;
     xi.head<3>() = Vec3(rng2.gaussian(1.0), rng2.gaussian(1.0), rng2.gaussian(1.0));
     xi.tail<3>() = Vec3(rng2.gaussian(0.5), rng2.gaussian(0.5), rng2.gaussian(0.5));
     const Mat4 T = se3Exp(xi);
-    SC_NEAR((se3Inverse(T) * T - Mat4::Identity()).norm(), 0.0, 1e-12);
+    LUNA_NEAR((se3Inverse(T) * T - Mat4::Identity()).norm(), 0.0, 1e-12);
   }
 }
 
@@ -74,7 +74,7 @@ void testAdjoint() {
     const Mat4 T = se3Exp(a);
     const Mat4 lhs = se3Exp(se3Adjoint(T) * b);
     const Mat4 rhs = T * se3Exp(b) * se3Inverse(T);
-    SC_NEAR((lhs - rhs).norm(), 0.0, 1e-9);
+    LUNA_NEAR((lhs - rhs).norm(), 0.0, 1e-9);
   }
 }
 
@@ -93,7 +93,7 @@ void testRightJacobian() {
     const Mat4 rhs = se3Exp(xi) * se3Exp(h * (se3RightJacobian(xi) * d));
     // The residual is O(h) truncation from the finite difference, not a
     // Jacobian error, so the tolerance is set to a few times h.
-    SC_NEAR((lhs - rhs).norm(), 0.0, 1e-5);
+    LUNA_NEAR((lhs - rhs).norm(), 0.0, 1e-5);
   }
 }
 
@@ -105,74 +105,74 @@ void testPose2() {
     // Composition must match the homogeneous-matrix product.
     const Mat3 Ma = pose2ToSE2(a), Mb = pose2ToSE2(b);
     const Mat3 Mc = pose2ToSE2(pose2Compose(a, b));
-    SC_NEAR((Ma * Mb - Mc).norm(), 0.0, 1e-12);
+    LUNA_NEAR((Ma * Mb - Mc).norm(), 0.0, 1e-12);
     // Inverse must undo composition.
     const Pose2 id = pose2Compose(a, pose2Inverse(a));
-    SC_NEAR(id.x, 0.0, 1e-12);
-    SC_NEAR(id.y, 0.0, 1e-12);
-    SC_NEAR(wrapPi(id.th), 0.0, 1e-12);
+    LUNA_NEAR(id.x, 0.0, 1e-12);
+    LUNA_NEAR(id.y, 0.0, 1e-12);
+    LUNA_NEAR(wrapPi(id.th), 0.0, 1e-12);
   }
   // wrapPi maps an angle into a half-open interval of width 2*pi whose
   // endpoint is +/-pi. Both endpoints are the same angle, so the check is on
   // magnitude rather than on which sign the branch cut lands.
-  SC_NEAR(std::abs(wrapPi(3.0 * kPi)), kPi, 1e-12);
-  SC_NEAR(std::abs(wrapPi(-3.0 * kPi)), kPi, 1e-12);
-  SC_NEAR(wrapPi(0.0), 0.0, 1e-14);
-  SC_NEAR(wrapPi(0.3), 0.3, 1e-14);
-  SC_NEAR(wrapPi(2.0 * kPi + 0.3), 0.3, 1e-12);
+  LUNA_NEAR(std::abs(wrapPi(3.0 * kPi)), kPi, 1e-12);
+  LUNA_NEAR(std::abs(wrapPi(-3.0 * kPi)), kPi, 1e-12);
+  LUNA_NEAR(wrapPi(0.0), 0.0, 1e-14);
+  LUNA_NEAR(wrapPi(0.3), 0.3, 1e-14);
+  LUNA_NEAR(wrapPi(2.0 * kPi + 0.3), 0.3, 1e-12);
 }
 
 void testStats() {
   RunningStats s;
   for (int i = 1; i <= 100; ++i) s.add(static_cast<Scalar>(i));
-  SC_NEAR(s.mean(), 50.5, 1e-12);
-  SC_NEAR(s.min(), 1.0, 1e-12);
-  SC_NEAR(s.max(), 100.0, 1e-12);
+  LUNA_NEAR(s.mean(), 50.5, 1e-12);
+  LUNA_NEAR(s.min(), 1.0, 1e-12);
+  LUNA_NEAR(s.max(), 100.0, 1e-12);
   // Sample variance (the n-1 normalisation) of 1..100 is n(n+1)/12.
-  SC_NEAR(s.variance(), 100.0 * 101.0 / 12.0, 1e-9);
-  SC_NEAR(RunningStats::percentile({1, 2, 3, 4, 5}, 0.5), 3.0, 1e-12);
-  SC_NEAR(RunningStats::percentile({1, 2, 3, 4, 5}, 1.0), 5.0, 1e-12);
+  LUNA_NEAR(s.variance(), 100.0 * 101.0 / 12.0, 1e-9);
+  LUNA_NEAR(RunningStats::percentile({1, 2, 3, 4, 5}, 0.5), 3.0, 1e-12);
+  LUNA_NEAR(RunningStats::percentile({1, 2, 3, 4, 5}, 1.0), 5.0, 1e-12);
 }
 
 void testRng() {
   // Same seed, same stream: the deterministic replay mode depends on this.
   Rng a(42), b(42);
-  for (int i = 0; i < 1000; ++i) SC_NEAR(a.uniform(), b.uniform(), 0.0);
+  for (int i = 0; i < 1000; ++i) LUNA_NEAR(a.uniform(), b.uniform(), 0.0);
   // Uniformity and range.
   Rng c(7);
   RunningStats u;
   for (int i = 0; i < 200000; ++i) u.add(c.uniform());
-  SC_NEAR(u.mean(), 0.5, 5e-3);
-  SC_NEAR(u.min() >= 0.0, 1.0, 0.0);
-  SC_NEAR(u.max() < 1.0, 1.0, 0.0);
+  LUNA_NEAR(u.mean(), 0.5, 5e-3);
+  LUNA_NEAR(u.min() >= 0.0, 1.0, 0.0);
+  LUNA_NEAR(u.max() < 1.0, 1.0, 0.0);
   // Gaussian moments.
   Rng d(11);
   RunningStats g;
   for (int i = 0; i < 200000; ++i) g.add(d.gaussian());
-  SC_NEAR(g.mean(), 0.0, 1e-2);
-  SC_NEAR(g.stddev(), 1.0, 1e-2);
+  LUNA_NEAR(g.mean(), 0.0, 1e-2);
+  LUNA_NEAR(g.stddev(), 1.0, 1e-2);
 }
 
 void testPoolAllocator() {
   PoolAllocator pool(4096);
   void* a = pool.allocate(100);
-  SC_CHECK(a != nullptr);
+  LUNA_CHECK(a != nullptr);
   // Alignment guarantee for max_align_t.
-  SC_CHECK(reinterpret_cast<std::uintptr_t>(a) % alignof(std::max_align_t) == 0);
-  SC_CHECK(pool.misses() == 0);
+  LUNA_CHECK(reinterpret_cast<std::uintptr_t>(a) % alignof(std::max_align_t) == 0);
+  LUNA_CHECK(pool.misses() == 0);
   // Exhaustion returns nullptr rather than throwing in the hot path.
-  SC_CHECK(pool.allocate(1 << 20) == nullptr);
-  SC_CHECK(pool.misses() == 1);
+  LUNA_CHECK(pool.allocate(1 << 20) == nullptr);
+  LUNA_CHECK(pool.misses() == 1);
   pool.reset();
-  SC_CHECK(pool.used() == 0);
+  LUNA_CHECK(pool.used() == 0);
 }
 
 void testRingAllocator() {
   RingAllocator ring(64, 4);
-  SC_CHECK(ring.slots() == 4);
+  LUNA_CHECK(ring.slots() == 4);
   // Wrapping must recycle the oldest slot, never fail.
-  for (int i = 0; i < 100; ++i) SC_CHECK(ring.next() != nullptr);
-  SC_CHECK(ring.live() == 4);
+  for (int i = 0; i < 100; ++i) LUNA_CHECK(ring.next() != nullptr);
+  LUNA_CHECK(ring.live() == 4);
 }
 
 /// Solve a small least-squares problem with the sparse system and compare with
@@ -191,13 +191,13 @@ void testSparseSystem() {
     for (int j = i; j < n; ++j) sys.addH(i, j, MatX::Constant(1, 1, A(i, j)));
     sys.addB(i, VecX::Constant(1, b(i)));
   }
-  SC_CHECK(sys.factorise());
+  LUNA_CHECK(sys.factorise());
   VecX got;
-  SC_CHECK(sys.solve(&got));
-  SC_CHECK(static_cast<int>(got.size()) == n);
-  SC_NEAR((got - want).norm(), 0.0, 1e-8);
+  LUNA_CHECK(sys.solve(&got));
+  LUNA_CHECK(static_cast<int>(got.size()) == n);
+  LUNA_NEAR((got - want).norm(), 0.0, 1e-8);
   // The dense view must match what was assembled.
-  SC_NEAR((sys.denseH() - A).norm(), 0.0, 1e-12);
+  LUNA_NEAR((sys.denseH() - A).norm(), 0.0, 1e-12);
 }
 
 /// QP with a box constraint must land on the constrained optimum, not the
@@ -218,9 +218,9 @@ void testQp() {
   QpOptions opt;
   VecX x;
   const QpResult res = solver.solve(&x, opt);
-  SC_CHECK(res.status == QpStatus::kSolved || res.status == QpStatus::kMaxIter);
-  SC_NEAR(x(0), 1.0, 1e-4);
-  SC_NEAR(x(1), 1.0, 1e-4);
+  LUNA_CHECK(res.status == QpStatus::kSolved || res.status == QpStatus::kMaxIter);
+  LUNA_NEAR(x(0), 1.0, 1e-4);
+  LUNA_NEAR(x(1), 1.0, 1e-4);
 }
 
 /// SE(2): Exp/Log round trip, the Adjoint identity, and the left Jacobian.
@@ -237,14 +237,14 @@ void testSe2() {
     // The result is a rigid transform: rotation block orthonormal, bottom row
     // exact, determinant +1.
     const Mat2 R = T.topLeftCorner<2, 2>();
-    SC_NEAR((R * R.transpose() - Mat2::Identity()).norm(), 0.0, 1e-12);
-    SC_NEAR(R.determinant(), 1.0, 1e-12);
-    SC_NEAR(T(2, 0), 0.0, 1e-15);
-    SC_NEAR(T(2, 1), 0.0, 1e-15);
-    SC_NEAR(T(2, 2), 1.0, 1e-15);
+    LUNA_NEAR((R * R.transpose() - Mat2::Identity()).norm(), 0.0, 1e-12);
+    LUNA_NEAR(R.determinant(), 1.0, 1e-12);
+    LUNA_NEAR(T(2, 0), 0.0, 1e-15);
+    LUNA_NEAR(T(2, 1), 0.0, 1e-15);
+    LUNA_NEAR(T(2, 2), 1.0, 1e-15);
     // Log inverts Exp. Compare transforms, since a tangent is only unique
     // within the |phi| <= pi ball.
-    SC_NEAR((se2Exp(se2Log(T)) - T).norm(), 0.0, 1e-10);
+    LUNA_NEAR((se2Exp(se2Log(T)) - T).norm(), 0.0, 1e-10);
   }
 
   // Small angles are where the closed form loses precision, so they are tested
@@ -252,11 +252,11 @@ void testSe2() {
   for (Scalar phi : {0.0, 1e-12, 1e-9, 1e-7, 1e-5}) {
     const Vec3 xi(0.3, -0.2, phi);
     const Mat3 T = se2Exp(xi);
-    SC_NEAR((se2Exp(se2Log(T)) - T).norm(), 0.0, 1e-12);
+    LUNA_NEAR((se2Exp(se2Log(T)) - T).norm(), 0.0, 1e-12);
     // The translation of a pure small rotation is the identity to first order,
     // so the recovered rho must equal the input rho.
-    SC_NEAR(se2Log(T).x(), 0.3, 1e-9);
-    SC_NEAR(se2Log(T).y(), -0.2, 1e-9);
+    LUNA_NEAR(se2Log(T).x(), 0.3, 1e-9);
+    LUNA_NEAR(se2Log(T).y(), -0.2, 1e-9);
   }
 
   // Adjoint identity: Exp(Ad_T xi) == T Exp(xi) T^{-1}.
@@ -266,14 +266,14 @@ void testSe2() {
     const Mat3 T = se2Exp(a);
     const Mat3 lhs = se2Exp(se2Adjoint(T) * b);
     const Mat3 rhs = T * se2Exp(b) * se2Inverse(T);
-    SC_NEAR((lhs - rhs).norm(), 0.0, 1e-10);
+    LUNA_NEAR((lhs - rhs).norm(), 0.0, 1e-10);
   }
 
   // Left Jacobian inverts itself, including in the series regime.
   for (Scalar phi : {-3.0, -1.0, -1e-6, 0.0, 1e-6, 0.5, 2.9}) {
     const Mat2 V = se2LeftJacobian(phi);
     const Mat2 Vi = se2LeftJacobianInverse(phi);
-    SC_NEAR((V * Vi - Mat2::Identity()).norm(), 0.0, 1e-10);
+    LUNA_NEAR((V * Vi - Mat2::Identity()).norm(), 0.0, 1e-10);
   }
 
   // Composition and relative pose agree with matrix arithmetic.
@@ -282,12 +282,12 @@ void testSe2() {
     const Pose2 b{rng.gaussian(1.0), rng.gaussian(1.0), rng.gaussian(1.0)};
     const Pose2 c = pose2Compose(a, b);
     const Mat3 Tc = pose2ToSE2(a) * pose2ToSE2(b);
-    SC_NEAR((pose2ToSE2(c) - Tc).norm(), 0.0, 1e-12);
+    LUNA_NEAR((pose2ToSE2(c) - Tc).norm(), 0.0, 1e-12);
     const Pose2 rel = pose2Relative(a, b);
-    SC_NEAR((pose2ToSE2(a) * pose2ToSE2(rel) - pose2ToSE2(b)).norm(), 0.0, 1e-12);
+    LUNA_NEAR((pose2ToSE2(a) * pose2ToSE2(rel) - pose2ToSE2(b)).norm(), 0.0, 1e-12);
     // Relative of a pose with itself is the identity.
     const Pose2 self = pose2Relative(a, a);
-    SC_NEAR(std::abs(self.x) + std::abs(self.y) + std::abs(self.th), 0.0, 1e-12);
+    LUNA_NEAR(std::abs(self.x) + std::abs(self.y) + std::abs(self.th), 0.0, 1e-12);
   }
 }
 
@@ -308,4 +308,4 @@ void run() {
 
 }  // namespace
 
-SC_TEST_MAIN("test_core")
+LUNA_TEST_MAIN("test_core")

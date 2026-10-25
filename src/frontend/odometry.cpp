@@ -1,9 +1,9 @@
-#include "slamcore/frontend/odometry.hpp"
+#include "luna/frontend/odometry.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace sc {
+namespace luna {
 namespace frontend {
 
 OdomIntegrator::OdomIntegrator(const OdomOptions& opt) : opt_(opt) {}
@@ -91,4 +91,4 @@ OdomConstraint OdomIntegrator::take() {
 }
 
 }  // namespace frontend
-}  // namespace sc
+}  // namespace luna

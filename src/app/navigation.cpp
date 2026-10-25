@@ -1,4 +1,4 @@
-#include "slamcore/app/navigation.hpp"
+#include "luna/app/navigation.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -6,13 +6,13 @@
 #include <limits>
 #include <unordered_map>
 
-#include "slamcore/bench/trajectory.hpp"
-#include "slamcore/frontend/features.hpp"
-#include "slamcore/frontend/odometry.hpp"
-#include "slamcore/sim/simulator.hpp"
-#include "slamcore/sim/vehicle.hpp"
+#include "luna/bench/trajectory.hpp"
+#include "luna/frontend/features.hpp"
+#include "luna/frontend/odometry.hpp"
+#include "luna/sim/simulator.hpp"
+#include "luna/sim/vehicle.hpp"
 
-namespace sc {
+namespace luna {
 namespace app {
 namespace {
 
@@ -688,7 +688,7 @@ NavigationResult runNavigation(const sim::SimConfig& cfg, const NavigationOption
     res.stats.control_sigma_xy = std::sqrt(est.sigma_xx + est.sigma_yy);
     res.stats.control_sigma_th = std::sqrt(est.sigma_thth);
     res.stats.control_stop_reason = out.stats.stop_reason;
-    if (std::getenv("SC_TRACE") && (k % 20 == 0 || out.stopping())) {
+    if (std::getenv("LUNA_TRACE") && (k % 20 == 0 || out.stopping())) {
       std::fprintf(stderr,
                    "tick %4d pos=(%7.3f,%7.3f) th=%6.3f v=%5.2f prog=%.2f lat=%.3f head=%.3f "
                    "tube=%.3f cap=%.3f cmd(v=%.2f st=%+.3f a=%+.2f) st=%s reason=%s\n",
@@ -738,4 +738,4 @@ NavigationResult runNavigation(const sim::SimConfig& cfg, const NavigationOption
 }
 
 }  // namespace app
-}  // namespace sc
+}  // namespace luna

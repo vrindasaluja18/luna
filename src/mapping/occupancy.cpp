@@ -1,4 +1,4 @@
-#include "slamcore/mapping/occupancy.hpp"
+#include "luna/mapping/occupancy.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -11,12 +11,12 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#define SC_HAVE_MMAP 1
+#define LUNA_HAVE_MMAP 1
 #else
-#define SC_HAVE_MMAP 0
+#define LUNA_HAVE_MMAP 0
 #endif
 
-namespace sc {
+namespace luna {
 namespace mapping {
 namespace {
 
@@ -119,7 +119,7 @@ constexpr std::uint64_t kBuckets = 1u << 16;     // 65536 buckets
 }
 
 bool OccupancyMap::loadPaged(const Key& k, Tile* t) const {
-#if SC_HAVE_MMAP
+#if LUNA_HAVE_MMAP
   if (opt_.backing_path.empty()) return false;
   const std::uint64_t bucket = KeyHash{}(k) % kBuckets;
   const off_t off = static_cast<off_t>(bucket * kPageStride);
@@ -144,7 +144,7 @@ bool OccupancyMap::loadPaged(const Key& k, Tile* t) const {
 }
 
 void OccupancyMap::writePaged(const Key& k, const Tile& t) const {
-#if SC_HAVE_MMAP
+#if LUNA_HAVE_MMAP
   if (opt_.backing_path.empty()) return;
   const std::uint64_t bucket = KeyHash{}(k) % kBuckets;
   const off_t off = static_cast<off_t>(bucket * kPageStride);
@@ -365,4 +365,4 @@ std::vector<RangeReading> readingsFromFeatures(const std::vector<frontend::Featu
 }
 
 }  // namespace mapping
-}  // namespace sc
+}  // namespace luna

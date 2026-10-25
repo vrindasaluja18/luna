@@ -1,4 +1,4 @@
-// SLAMCore-8G -- frontend tests: FAST, BRIEF, KLT, stereo.
+// LUNA -- frontend tests: FAST, BRIEF, KLT, stereo.
 //
 // The KLT tests are the important ones. They warp an image by a *known* shift
 // with an independent bilinear resampler (not the simulator's renderer, and not
@@ -12,13 +12,13 @@
 #include <cstdint>
 #include <vector>
 
-#include "slamcore/frontend/features.hpp"
-#include "slamcore/sim/simulator.hpp"
+#include "luna/frontend/features.hpp"
+#include "luna/sim/simulator.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
-using namespace sc::frontend;
-using namespace sc::sim;
+using namespace luna;
+using namespace luna::frontend;
+using namespace luna::sim;
 
 namespace {
 
@@ -92,12 +92,12 @@ void testFastDetectsCorners() {
   opt.threshold = 25;
   std::vector<Corner> corners;
   detectFast(im, opt, &corners);
-  SC_CHECK(!corners.empty());
+  LUNA_CHECK(!corners.empty());
   // Every corner must be inside the border margin.
   for (const Corner& c : corners) {
-    SC_CHECK(c.x >= opt.border && c.y >= opt.border);
-    SC_CHECK(c.x < im.w - opt.border && c.y < im.h - opt.border);
-    SC_CHECK(c.score > 0);
+    LUNA_CHECK(c.x >= opt.border && c.y >= opt.border);
+    LUNA_CHECK(c.x < im.w - opt.border && c.y < im.h - opt.border);
+    LUNA_CHECK(c.score > 0);
   }
   // A flat image has no corners at all.
   Image flat;
@@ -105,12 +105,12 @@ void testFastDetectsCorners() {
   std::fill(flat.px.begin(), flat.px.end(), 128);
   std::vector<Corner> none;
   detectFast(flat, opt, &none);
-  SC_CHECK(none.empty());
+  LUNA_CHECK(none.empty());
   // The cap is honoured.
   opt.max_features = 7;
   std::vector<Corner> capped;
   detectFast(im, opt, &capped);
-  SC_CHECK(capped.size() <= 7);
+  LUNA_CHECK(capped.size() <= 7);
 }
 
 /// BRIEF must be a pure function of the pixel patch: identical patches give
@@ -122,17 +122,17 @@ void testBriefDescriptor() {
   BriefPattern p1(0xABCDEFull);
   BriefPattern p2(0xABCDEFull);
   Descriptor da, db, da2;
-  SC_CHECK(p1.compute(a, 48, 48, &da));
-  SC_CHECK(p2.compute(a, 48, 48, &da2));
-  SC_CHECK(da.hamming(da2) == 0);  // same pattern, same pixels
-  SC_CHECK(p1.compute(b, 48, 48, &db));
-  SC_CHECK(da.hamming(db) > 0);  // different pixels
+  LUNA_CHECK(p1.compute(a, 48, 48, &da));
+  LUNA_CHECK(p2.compute(a, 48, 48, &da2));
+  LUNA_CHECK(da.hamming(da2) == 0);  // same pattern, same pixels
+  LUNA_CHECK(p1.compute(b, 48, 48, &db));
+  LUNA_CHECK(da.hamming(db) > 0);  // different pixels
   // A patch that would leave the image is refused.
   Descriptor edge;
-  SC_CHECK(!p1.compute(a, 1, 1, &edge));
-  SC_CHECK(!p1.compute(a, 95, 95, &edge));
+  LUNA_CHECK(!p1.compute(a, 1, 1, &edge));
+  LUNA_CHECK(!p1.compute(a, 95, 95, &edge));
   // Descriptor bytes are the packed bit count, not a per-keyframe cost.
-  SC_CHECK(p1.bytes() > 0);
+  LUNA_CHECK(p1.bytes() > 0);
 }
 
 void testDetectAndDescribe() {
@@ -143,11 +143,11 @@ void testDetectAndDescribe() {
   BriefOptions brief;
   std::vector<Feature> feats;
   detectAndDescribe(im, pat, fast, brief, &feats);
-  SC_CHECK(!feats.empty());
-  SC_CHECK(feats.size() <= static_cast<Size>(fast.max_features));
+  LUNA_CHECK(!feats.empty());
+  LUNA_CHECK(feats.size() <= static_cast<Size>(fast.max_features));
   for (const Feature& f : feats) {
-    SC_CHECK(f.x >= 0 && f.y >= 0 && f.x < im.w && f.y < im.h);
-    SC_CHECK(f.depth < 0);  // depth is not known until stereo runs
+    LUNA_CHECK(f.x >= 0 && f.y >= 0 && f.x < im.w && f.y < im.h);
+    LUNA_CHECK(f.depth < 0);  // depth is not known until stereo runs
   }
   // Descriptors must be distinct for distinct corners; a degenerate detector
   // that returns the same bit vector everywhere would still pass a count test.
@@ -155,7 +155,7 @@ void testDetectAndDescribe() {
   for (Size i = 0; i < feats.size() && i < 40; ++i)
     for (Size j = i + 1; j < feats.size() && j < 40; ++j)
       if (feats[i].desc.hamming(feats[j].desc) > 0) ++distinct;
-  SC_CHECK(distinct > 0);
+  LUNA_CHECK(distinct > 0);
 }
 
 /// Recover a known shift at one pyramid configuration. Returns the mean error
@@ -208,8 +208,8 @@ void testKltSingleLevelAccuracy() {
   const Scalar sx = 1.0, sy = 0.3;
   const Image b = warpImage(a, sx, sy);
   const TrackResult r = trackShift(a, b, 0, sx, sy);
-  SC_CHECK(r.tracked > 50);
-  SC_NEAR(r.mean_err, 0.0, 0.1);
+  LUNA_CHECK(r.tracked > 50);
+  LUNA_NEAR(r.mean_err, 0.0, 0.1);
 }
 
 /// The regression test for the coarse-to-fine bug: every pyramid depth must
@@ -222,10 +222,10 @@ void testKltPyramidAccuracy() {
     const Image b = warpImage(a, shift, 0.3 * shift);
     for (int levels = 0; levels <= 3; ++levels) {
       const TrackResult r = trackShift(a, b, levels, shift, 0.3 * shift);
-      SC_CHECK(r.tracked > 50);
+      LUNA_CHECK(r.tracked > 50);
       // The tolerance is sub-pixel at every level. If the reference patch is
       // rebuilt per level, the error grows with the level count and this fails.
-      SC_NEAR(r.mean_err, 0.0, 0.25);
+      LUNA_NEAR(r.mean_err, 0.0, 0.25);
     }
   }
 }
@@ -238,8 +238,8 @@ void testKltVerticalShift() {
   const Image b = warpImage(a, 0.0, sy);
   for (int levels = 0; levels <= 2; ++levels) {
     const TrackResult r = trackShift(a, b, levels, 0.0, sy);
-    SC_CHECK(r.tracked > 50);
-    SC_NEAR(r.mean_err, 0.0, 0.25);
+    LUNA_CHECK(r.tracked > 50);
+    LUNA_NEAR(r.mean_err, 0.0, 0.25);
   }
 }
 
@@ -257,7 +257,7 @@ void testKltRejectsUnrecoverableTracks() {
   BriefOptions brief;
   std::vector<Feature> feats;
   detectAndDescribe(a, pat, fast, brief, &feats);
-  SC_CHECK(r.tracked < feats.size());
+  LUNA_CHECK(r.tracked < feats.size());
 }
 
 /// The tracker must not report a large displacement for a stationary scene.
@@ -265,9 +265,9 @@ void testKltRejectsUnrecoverableTracks() {
 void testKltZeroMotionStable() {
   const Image a = synthTexture(320, 240, 29);
   const TrackResult r = trackShift(a, a, 3, 0.0, 0.0);
-  SC_CHECK(r.tracked > 100);
-  SC_NEAR(r.mean_err, 0.0, 0.05);
-  SC_NEAR(static_cast<Scalar>(r.coarse_rej), 0.0, 0.0);
+  LUNA_CHECK(r.tracked > 100);
+  LUNA_NEAR(r.mean_err, 0.0, 0.05);
+  LUNA_NEAR(static_cast<Scalar>(r.coarse_rej), 0.0, 0.0);
 }
 
 /// Stereo depth on a controlled warp: shift the right image by exactly the
@@ -283,7 +283,7 @@ void testStereoDepthOnWarp() {
   BriefOptions brief;
   std::vector<Feature> feats;
   detectAndDescribe(left, pat, fast, brief, &feats);
-  SC_CHECK(feats.size() > 50);
+  LUNA_CHECK(feats.size() > 50);
 
   for (const Scalar disp : {2.0, 4.0, 8.0, 16.0}) {
     // Disparity is u_left - u_right, so the right image's content sits to the
@@ -299,9 +299,9 @@ void testStereoDepthOnWarp() {
       rel += std::abs(f.depth - true_z) / true_z;
       ++valid;
     }
-    SC_CHECK(valid > 0);
+    LUNA_CHECK(valid > 0);
     // Sub-pixel disparity recovery should keep this well inside a few percent.
-    SC_NEAR(rel / static_cast<Scalar>(valid), 0.0, 0.05);
+    LUNA_NEAR(rel / static_cast<Scalar>(valid), 0.0, 0.05);
   }
 }
 
@@ -321,7 +321,7 @@ void testStereoRejectsFlatMatch() {
   std::vector<Feature> feats;
   detectAndDescribe(left, pat, fast, brief, &feats);
   stereoDepth(left, flat, cam, opt, &feats);
-  for (const Feature& f : feats) SC_CHECK(f.depth < 0);
+  for (const Feature& f : feats) LUNA_CHECK(f.depth < 0);
 }
 
 void run() {
@@ -339,4 +339,4 @@ void run() {
 
 }  // namespace
 
-SC_TEST_MAIN("test_frontend")
+LUNA_TEST_MAIN("test_frontend")

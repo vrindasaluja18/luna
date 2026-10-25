@@ -1,4 +1,4 @@
-#include "slamcore/sim/simulator.hpp"
+#include "luna/sim/simulator.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <deque>
 #include <fstream>
 
-namespace sc {
+namespace luna {
 namespace sim {
 
 namespace {
@@ -487,4 +487,4 @@ bool writePgm(const std::string& path, const GridMap& grid, Scalar scale) {
 }
 
 }  // namespace sim
-}  // namespace sc
+}  // namespace luna

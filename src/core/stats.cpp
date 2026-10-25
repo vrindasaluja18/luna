@@ -1,8 +1,8 @@
-#include "slamcore/core/stats.hpp"
+#include "luna/core/stats.hpp"
 
 #include <algorithm>
 
-namespace sc {
+namespace luna {
 
 Scalar RunningStats::percentile(std::vector<Scalar> v, Scalar p) {
   if (v.empty()) return 0.0;
@@ -14,4 +14,4 @@ Scalar RunningStats::percentile(std::vector<Scalar> v, Scalar p) {
   return v[lo] * (1.0 - frac) + v[hi] * frac;
 }
 
-}  // namespace sc
+}  // namespace luna

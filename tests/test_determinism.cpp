@@ -1,4 +1,4 @@
-// SLAMCore-8G -- determinism tests.
+// LUNA -- determinism tests.
 //
 // The contract promises that every benchmark number is reproducible from
 // public data on any machine. That claim is only true if the simulator, the
@@ -15,14 +15,14 @@
 #include <string>
 #include <vector>
 
-#include "slamcore/frontend/features.hpp"
-#include "slamcore/sim/faults.hpp"
-#include "slamcore/sim/simulator.hpp"
+#include "luna/frontend/features.hpp"
+#include "luna/sim/faults.hpp"
+#include "luna/sim/simulator.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
-using namespace sc::sim;
-using namespace sc::frontend;
+using namespace luna;
+using namespace luna::sim;
+using namespace luna::frontend;
 
 namespace {
 
@@ -112,27 +112,27 @@ void testSameSeedReproducesExactly() {
   const SimConfig c = cfg(12345);
   const Fingerprint a = run(c, true);
   const Fingerprint b = run(c, true);
-  SC_CHECK(a.frames == b.frames);
-  SC_CHECK(a.image_hash == b.image_hash);
-  SC_CHECK(a.right_hash == b.right_hash);
-  SC_CHECK(a.truth_hash == b.truth_hash);
-  SC_CHECK(a.imu_hash == b.imu_hash);
-  SC_NEAR(a.path, b.path, 0.0);
-  SC_NEAR(a.final_x, b.final_x, 0.0);
-  SC_NEAR(a.final_y, b.final_y, 0.0);
-  SC_NEAR(a.final_th, b.final_th, 0.0);
+  LUNA_CHECK(a.frames == b.frames);
+  LUNA_CHECK(a.image_hash == b.image_hash);
+  LUNA_CHECK(a.right_hash == b.right_hash);
+  LUNA_CHECK(a.truth_hash == b.truth_hash);
+  LUNA_CHECK(a.imu_hash == b.imu_hash);
+  LUNA_NEAR(a.path, b.path, 0.0);
+  LUNA_NEAR(a.final_x, b.final_x, 0.0);
+  LUNA_NEAR(a.final_y, b.final_y, 0.0);
+  LUNA_NEAR(a.final_th, b.final_th, 0.0);
   // The frontend is deterministic too, which is what makes a reported ATE
   // reproducible rather than merely similar.
-  SC_CHECK(a.features == b.features);
-  SC_CHECK(a.tracked == b.tracked);
-  SC_CHECK(a.stereo_valid == b.stereo_valid);
+  LUNA_CHECK(a.features == b.features);
+  LUNA_CHECK(a.tracked == b.tracked);
+  LUNA_CHECK(a.stereo_valid == b.stereo_valid);
 }
 
 void testDifferentSeedDiffers() {
   const Fingerprint a = run(cfg(1), false);
   const Fingerprint b = run(cfg(2), false);
-  SC_CHECK(a.image_hash != b.image_hash);
-  SC_CHECK(a.truth_hash != b.truth_hash);
+  LUNA_CHECK(a.image_hash != b.image_hash);
+  LUNA_CHECK(a.truth_hash != b.truth_hash);
 }
 
 /// Same seed and world, different world type: the type must actually change
@@ -140,8 +140,8 @@ void testDifferentSeedDiffers() {
 void testWorldTypeMatters() {
   const Fingerprint a = run(cfg(7, WorldType::kRooms), false);
   const Fingerprint b = run(cfg(7, WorldType::kSaddleHall), false);
-  SC_CHECK(a.image_hash != b.image_hash);
-  SC_CHECK(a.truth_hash != b.truth_hash);
+  LUNA_CHECK(a.image_hash != b.image_hash);
+  LUNA_CHECK(a.truth_hash != b.truth_hash);
 }
 
 /// Faults must be scheduled deterministically as well, or a fault-injection
@@ -151,12 +151,12 @@ void testFaultsAreDeterministic() {
   c.faults = FaultSchedule::standardSuite(2.0, 1.0);
   const Fingerprint a = run(c, false);
   const Fingerprint b = run(c, false);
-  SC_CHECK(a.image_hash == b.image_hash);
-  SC_CHECK(a.truth_hash == b.truth_hash);
+  LUNA_CHECK(a.image_hash == b.image_hash);
+  LUNA_CHECK(a.truth_hash == b.truth_hash);
   // And a faulted run must differ from a clean one, i.e. the faults did
   // something rather than being silently inert.
   const Fingerprint clean = run(cfg(99, WorldType::kRooms), false);
-  SC_CHECK(a.image_hash != clean.image_hash);
+  LUNA_CHECK(a.image_hash != clean.image_hash);
 }
 
 /// The frontend over a real simulated run must produce a usable amount of data.
@@ -168,17 +168,17 @@ void testFrontendOverSimRun() {
   SimConfig c = cfg(2024, WorldType::kRooms);
   c.duration = 8.0;
   const Fingerprint fp = run(c, true);
-  SC_CHECK(fp.frames > 50);
-  SC_CHECK(fp.features > 0);
+  LUNA_CHECK(fp.frames > 50);
+  LUNA_CHECK(fp.features > 0);
   // Most detected features must survive tracking: the frontend is only useful
   // if it carries a stable set between frames.
   const Scalar track_rate = static_cast<Scalar>(fp.tracked) / static_cast<Scalar>(fp.features);
-  SC_CHECK(track_rate > 0.6);
+  LUNA_CHECK(track_rate > 0.6);
   // And a real fraction of them must acquire a stereo depth. The exact share
   // depends on how much of the view is bare wall, so the bar is set where a
   // broken matcher (near zero) fails but a working one on a sparse scene passes.
   const Scalar depth_rate = static_cast<Scalar>(fp.stereo_valid) / static_cast<Scalar>(fp.features);
-  SC_CHECK(depth_rate > 0.1);
+  LUNA_CHECK(depth_rate > 0.1);
 }
 
 /// Wall-clock must be far below real time on a single core, which is the
@@ -188,9 +188,9 @@ void testRunsFasterThanRealTime() {
   c.duration = 10.0;
   Simulator sim(c);
   const SimResult r = sim.run(nullptr);
-  SC_CHECK(r.wall_time_s > 0.0);
+  LUNA_CHECK(r.wall_time_s > 0.0);
   // 10 s of simulated time with stereo rendering must fit in well under 10 s.
-  SC_CHECK(r.wall_time_s < c.duration);
+  LUNA_CHECK(r.wall_time_s < c.duration);
 }
 
 void run() {
@@ -204,4 +204,4 @@ void run() {
 
 }  // namespace
 
-SC_TEST_MAIN("test_determinism")
+LUNA_TEST_MAIN("test_determinism")

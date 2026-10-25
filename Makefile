@@ -1,4 +1,4 @@
-# SLAMCore-8G top-level entry points.
+# LUNA top-level entry points.
 #
 #   make          configure + build
 #   make test     run the CTest suite
@@ -27,7 +27,7 @@ test: build
 # Nothing in the report is hand-written, so the numbers can always be traced
 # back to a command that reproduces them.
 bench: build
-	bash scripts/bench.sh $(BUILD_DIR)/slamcore $(BENCH_SEEDS)
+	bash scripts/bench.sh $(BUILD_DIR)/luna $(BENCH_SEEDS)
 
 clean:
 	rm -rf $(BUILD_DIR)

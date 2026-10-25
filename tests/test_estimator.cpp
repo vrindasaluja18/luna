@@ -1,4 +1,4 @@
-// SLAMCore-8G -- end-to-end estimator tests.
+// LUNA -- end-to-end estimator tests.
 //
 // These run the real pipeline over the simulator and assert on the numbers it
 // produces. The important property is the *comparison* between dead reckoning
@@ -11,13 +11,13 @@
 #include <cstdio>
 #include <string>
 
-#include "slamcore/app/estimator.hpp"
-#include "slamcore/bench/trajectory.hpp"
-#include "slamcore/core/stats.hpp"
-#include "slamcore/sim/simulator.hpp"
+#include "luna/app/estimator.hpp"
+#include "luna/bench/trajectory.hpp"
+#include "luna/core/stats.hpp"
+#include "luna/sim/simulator.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
+using namespace luna;
 
 namespace {
 
@@ -39,11 +39,11 @@ sim::SimConfig worldConfig(sim::WorldType type, unsigned seed, Scalar duration) 
 void testPipelineRunsAndAligns() {
   const app::EstimatorResult r =
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 1, 120));
-  SC_CHECK(r.ok);
-  SC_CHECK(r.stats.keyframes > 20);
-  SC_CHECK(r.optimised_trajectory.size() == r.stats.keyframes);
-  SC_CHECK(!r.odom_trajectory.empty());
-  SC_CHECK(!r.truth.empty());
+  LUNA_CHECK(r.ok);
+  LUNA_CHECK(r.stats.keyframes > 20);
+  LUNA_CHECK(r.optimised_trajectory.size() == r.stats.keyframes);
+  LUNA_CHECK(!r.odom_trajectory.empty());
+  LUNA_CHECK(!r.truth.empty());
 
   // Every trajectory must span the same time window, and be monotone in time.
   auto spans = [](const bench::Trajectory& t) {
@@ -51,11 +51,11 @@ void testPipelineRunsAndAligns() {
   };
   const auto [ot0, ot1] = spans(r.odom_trajectory);
   const auto [kt0, kt1] = spans(r.optimised_trajectory);
-  SC_NEAR(ot0, kt0, 1e-6);
-  SC_CHECK(kt1 > kt0);
-  SC_CHECK(kt1 <= r.truth.back().t + 1e-6);
+  LUNA_NEAR(ot0, kt0, 1e-6);
+  LUNA_CHECK(kt1 > kt0);
+  LUNA_CHECK(kt1 <= r.truth.back().t + 1e-6);
   for (Size i = 1; i < r.optimised_trajectory.size(); ++i) {
-    SC_CHECK(r.optimised_trajectory[i].t > r.optimised_trajectory[i - 1].t);
+    LUNA_CHECK(r.optimised_trajectory[i].t > r.optimised_trajectory[i - 1].t);
   }
 }
 
@@ -68,15 +68,15 @@ void testGraphReproducesOdometryWithoutLoops() {
   opt.loop.min_index_gap = 1 << 30;  // no closures
   const app::EstimatorResult r =
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 1, 120), opt);
-  SC_CHECK(r.ok);
-  SC_CHECK(r.stats.loop_closures == 0);
-  SC_CHECK(r.stats.graph_failures == 0);
+  LUNA_CHECK(r.ok);
+  LUNA_CHECK(r.stats.loop_closures == 0);
+  LUNA_CHECK(r.stats.graph_failures == 0);
 
   // Dead reckoning must already be accurate on this short, well-textured run,
   // otherwise the comparison below is meaningless.
-  SC_CHECK(r.odom_ate.percent_of_distance < 2.0);
+  LUNA_CHECK(r.odom_ate.percent_of_distance < 2.0);
   // The optimised result must stay within a small margin of it.
-  SC_CHECK(r.optimised_ate.rmse < r.odom_ate.rmse + 0.5);
+  LUNA_CHECK(r.optimised_ate.rmse < r.odom_ate.rmse + 0.5);
 }
 
 /// A genuine revisit must be detected, and the closures it produces must be
@@ -97,17 +97,17 @@ void testGraphReproducesOdometryWithoutLoops() {
 void testLoopClosureHelpsOrHolds() {
   const app::EstimatorResult r =
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 6, 300));
-  SC_CHECK(r.ok);
-  SC_CHECK(r.stats.loop_closures > 0);
-  SC_CHECK(r.stats.graph_failures == 0);
+  LUNA_CHECK(r.ok);
+  LUNA_CHECK(r.stats.loop_closures > 0);
+  LUNA_CHECK(r.stats.graph_failures == 0);
   // Every accepted closure must agree with the ground-truth relationship
   // between the two keyframes it joined.
-  SC_CHECK(r.stats.loop_true_positives == r.stats.loop_closures);
-  SC_CHECK(r.stats.loop_false_positives == 0);
+  LUNA_CHECK(r.stats.loop_true_positives == r.stats.loop_closures);
+  LUNA_CHECK(r.stats.loop_false_positives == 0);
   // With closures the estimate must not be materially worse than the odometry.
-  SC_CHECK(r.optimised_ate.rmse <= r.odom_ate.rmse + 0.2);
+  LUNA_CHECK(r.optimised_ate.rmse <= r.odom_ate.rmse + 0.2);
   // And it must be accurate in absolute terms.
-  SC_CHECK(r.optimised_ate.percent_of_distance < 1.0);
+  LUNA_CHECK(r.optimised_ate.percent_of_distance < 1.0);
 }
 
 /// When the odometry drifts enough for the closures to have something to
@@ -127,13 +127,13 @@ void testLoopClosureCorrectsRealDrift() {
   const app::EstimatorResult with_loops = app::runEstimator(cfg);
   const app::EstimatorResult without = app::runEstimator(cfg, no_loop);
 
-  SC_CHECK(with_loops.ok && without.ok);
-  SC_CHECK(with_loops.stats.loop_closures > 0);
-  SC_CHECK(with_loops.stats.loop_false_positives == 0);
+  LUNA_CHECK(with_loops.ok && without.ok);
+  LUNA_CHECK(with_loops.stats.loop_closures > 0);
+  LUNA_CHECK(with_loops.stats.loop_false_positives == 0);
   // The drift is what makes the comparison meaningful.
-  SC_CHECK(without.optimised_ate.percent_of_distance > 0.3);
+  LUNA_CHECK(without.optimised_ate.percent_of_distance > 0.3);
   // The closures must reduce it.
-  SC_CHECK(with_loops.optimised_ate.rmse < without.optimised_ate.rmse);
+  LUNA_CHECK(with_loops.optimised_ate.rmse < without.optimised_ate.rmse);
 }
 
 /// The contract's latency budget is measured per optimisation. If a single
@@ -141,9 +141,9 @@ void testLoopClosureCorrectsRealDrift() {
 void testOptimiseLatencyBudget() {
   const app::EstimatorResult r =
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 6, 300));
-  SC_CHECK(r.ok);
-  SC_CHECK(r.stats.optimise_ms_p99 < 450.0);
-  SC_CHECK(r.stats.optimise_ms_max < 450.0);
+  LUNA_CHECK(r.ok);
+  LUNA_CHECK(r.stats.optimise_ms_p99 < 450.0);
+  LUNA_CHECK(r.stats.optimise_ms_max < 450.0);
 }
 
 /// Determinism: the same seed must produce bit-identical results. Without this
@@ -153,13 +153,13 @@ void testDeterminism() {
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 4, 120));
   const app::EstimatorResult b =
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 4, 120));
-  SC_CHECK(a.optimised_trajectory.size() == b.optimised_trajectory.size());
-  SC_CHECK(a.stats.loop_closures == b.stats.loop_closures);
+  LUNA_CHECK(a.optimised_trajectory.size() == b.optimised_trajectory.size());
+  LUNA_CHECK(a.stats.loop_closures == b.stats.loop_closures);
   for (Size i = 0; i < a.optimised_trajectory.size(); ++i) {
-    SC_CHECK(a.optimised_trajectory[i].t == b.optimised_trajectory[i].t);
-    SC_CHECK(a.optimised_trajectory[i].pose.x == b.optimised_trajectory[i].pose.x);
-    SC_CHECK(a.optimised_trajectory[i].pose.y == b.optimised_trajectory[i].pose.y);
-    SC_CHECK(a.optimised_trajectory[i].pose.th == b.optimised_trajectory[i].pose.th);
+    LUNA_CHECK(a.optimised_trajectory[i].t == b.optimised_trajectory[i].t);
+    LUNA_CHECK(a.optimised_trajectory[i].pose.x == b.optimised_trajectory[i].pose.x);
+    LUNA_CHECK(a.optimised_trajectory[i].pose.y == b.optimised_trajectory[i].pose.y);
+    LUNA_CHECK(a.optimised_trajectory[i].pose.th == b.optimised_trajectory[i].pose.th);
   }
 }
 
@@ -169,14 +169,14 @@ void testTumRoundTrip() {
   const app::EstimatorResult r =
       app::runEstimator(worldConfig(sim::WorldType::kRooms, 1, 60));
   const std::string path = "estimator_tum_roundtrip.tum";
-  SC_CHECK(bench::writeTum(path, r.optimised_trajectory));
+  LUNA_CHECK(bench::writeTum(path, r.optimised_trajectory));
   bench::Trajectory back;
-  SC_CHECK(bench::readTum(path, &back));
+  LUNA_CHECK(bench::readTum(path, &back));
   std::remove(path.c_str());
-  SC_CHECK(back.size() == r.optimised_trajectory.size());
+  LUNA_CHECK(back.size() == r.optimised_trajectory.size());
   for (Size i = 0; i < back.size(); ++i) {
-    SC_NEAR(back[i].pose.x, r.optimised_trajectory[i].pose.x, 1e-6);
-    SC_NEAR(back[i].pose.y, r.optimised_trajectory[i].pose.y, 1e-6);
+    LUNA_NEAR(back[i].pose.x, r.optimised_trajectory[i].pose.x, 1e-6);
+    LUNA_NEAR(back[i].pose.y, r.optimised_trajectory[i].pose.y, 1e-6);
   }
 }
 
@@ -190,4 +190,4 @@ void run() {
   testTumRoundTrip();
 }
 
-SC_TEST_MAIN("test_estimator")
+LUNA_TEST_MAIN("test_estimator")

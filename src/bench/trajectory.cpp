@@ -1,4 +1,4 @@
-#include "slamcore/bench/trajectory.hpp"
+#include "luna/bench/trajectory.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,11 +6,11 @@
 #include <fstream>
 #include <iomanip>
 
-#include "slamcore/core/se2.hpp"
-#include "slamcore/core/stats.hpp"
+#include "luna/core/se2.hpp"
+#include "luna/core/stats.hpp"
 #include <sstream>
 
-namespace sc {
+namespace luna {
 namespace bench {
 
 namespace {
@@ -166,4 +166,4 @@ bool readTum(const std::string& path, Trajectory* out) {
 }
 
 }  // namespace bench
-}  // namespace sc
+}  // namespace luna

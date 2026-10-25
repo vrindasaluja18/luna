@@ -1,13 +1,13 @@
-#include "slamcore/backend/loop_close.hpp"
+#include "luna/backend/loop_close.hpp"
 
 #include <algorithm>
 #include <cmath>
 
 #include <Eigen/SVD>
 
-#include "slamcore/core/stats.hpp"
+#include "luna/core/stats.hpp"
 
-namespace sc {
+namespace luna {
 namespace backend {
 
 namespace {
@@ -275,4 +275,4 @@ bool LoopCloser::query(const Keyframe& query, LoopClosure* out) {
 }
 
 }  // namespace backend
-}  // namespace sc
+}  // namespace luna

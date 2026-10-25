@@ -1,6 +1,6 @@
-#include "slamcore/core/se2.hpp"
+#include "luna/core/se2.hpp"
 
-namespace sc {
+namespace luna {
 
 namespace {
 
@@ -165,4 +165,4 @@ Mat3 se2Adjoint(const Mat3& T) {
   return Ad;
 }
 
-}  // namespace sc
+}  // namespace luna

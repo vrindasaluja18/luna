@@ -1,4 +1,4 @@
-#include "slamcore/sim/world.hpp"
+#include "luna/sim/world.hpp"
 
 #include <cmath>
 #include <limits>
@@ -8,7 +8,7 @@
 #include <deque>
 #include <sstream>
 
-namespace sc {
+namespace luna {
 namespace sim {
 
 // ---------------------------------------------------------------------------
@@ -745,4 +745,4 @@ std::vector<Vec2> sampleFreePoints(const GridMap& grid, int n, Scalar min_sep, R
 }
 
 }  // namespace sim
-}  // namespace sc
+}  // namespace luna

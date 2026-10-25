@@ -1,9 +1,9 @@
-#include "slamcore/sim/vehicle.hpp"
+#include "luna/sim/vehicle.hpp"
 
 #include <cmath>
 #include <fstream>
 
-namespace sc {
+namespace luna {
 namespace sim {
 
 Vehicle::Vehicle(const VehicleParams& params, const Pose2& initial, std::uint64_t seed)
@@ -159,4 +159,4 @@ bool GroundTruthLog::saveLandmarks(const std::string& path) const {
 }
 
 }  // namespace sim
-}  // namespace sc
+}  // namespace luna

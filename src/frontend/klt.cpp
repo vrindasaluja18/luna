@@ -1,4 +1,4 @@
-// SLAMCore-8G -- pyramid Lucas-Kanade optical flow with forward-backward
+// LUNA -- pyramid Lucas-Kanade optical flow with forward-backward
 // outlier rejection.
 //
 // The tracker works coarse-to-fine over a Gaussian pyramid. Two details carry
@@ -7,11 +7,11 @@
 // by the coarser level; and the pyramid prefilter must be wide enough to band
 // limit the decimated image, or the coarse levels match detail the fine level
 // cannot reproduce and the estimate drifts instead of converging.
-#include "slamcore/frontend/features.hpp"
+#include "luna/frontend/features.hpp"
 
 #include <algorithm>
 
-namespace sc {
+namespace luna {
 namespace frontend {
 
 // ---------------------------------------------------------------------------
@@ -262,4 +262,4 @@ void KltTracker::track(const sim::Image& prev, const sim::Image& cur, const std:
 }
 
 }  // namespace frontend
-}  // namespace sc
+}  // namespace luna

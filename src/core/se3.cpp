@@ -1,6 +1,6 @@
-#include "slamcore/core/se3.hpp"
+#include "luna/core/se3.hpp"
 
-namespace sc {
+namespace luna {
 namespace {
 
 /// Coefficients (A, B, C) with
@@ -186,4 +186,4 @@ Vec3 so3Residual(const Mat3& R_meas, const Mat3& R_pred) {
   return so3Log(R_meas * R_pred.transpose());
 }
 
-}  // namespace sc
+}  // namespace luna

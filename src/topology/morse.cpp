@@ -1,4 +1,4 @@
-#include "slamcore/topology/morse.hpp"
+#include "luna/topology/morse.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <functional>
 #include <sstream>
 
-namespace sc {
+namespace luna {
 namespace topology {
 namespace {
 
@@ -788,4 +788,4 @@ std::string MorseComplex::toAscii(int max_cols) const {
 }
 
 }  // namespace topology
-}  // namespace sc
+}  // namespace luna

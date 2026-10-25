@@ -1,4 +1,4 @@
-#include "slamcore/frontend/fast.hpp"
+#include "luna/frontend/fast.hpp"
 
 #include <algorithm>
 #include <array>
@@ -7,7 +7,7 @@
 #include <emmintrin.h>
 #endif
 
-namespace sc {
+namespace luna {
 namespace frontend {
 
 namespace {
@@ -131,4 +131,4 @@ void detectFast(const sim::Image& img, const FastOptions& opt, std::vector<Corne
 }
 
 }  // namespace frontend
-}  // namespace sc
+}  // namespace luna

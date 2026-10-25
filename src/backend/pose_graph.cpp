@@ -1,4 +1,4 @@
-#include "slamcore/backend/pose_graph.hpp"
+#include "luna/backend/pose_graph.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -6,7 +6,7 @@
 
 #include <Eigen/Cholesky>
 
-namespace sc {
+namespace luna {
 namespace backend {
 
 namespace {
@@ -442,4 +442,4 @@ bool PoseGraph::reinitialiseNode(Index i) {
 }
 
 }  // namespace backend
-}  // namespace sc
+}  // namespace luna

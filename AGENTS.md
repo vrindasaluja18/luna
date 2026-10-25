@@ -4,7 +4,7 @@ Repository notes for future sessions. Keep this factual and current.
 
 ## What this repo is
 
-SLAMCore-8G: a CPU-only, no-CUDA C++17 SLAM and navigation stack targeting
+LUNA: a CPU-only, no-CUDA C++17 SLAM and navigation stack targeting
 4 CPU cores and 8 GB RAM, with no ROS. Eigen is the only external dependency.
 
 ## Build, test, bench

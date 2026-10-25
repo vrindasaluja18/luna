@@ -1,10 +1,10 @@
-#include "slamcore/app/estimator.hpp"
+#include "luna/app/estimator.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 
-namespace sc {
+namespace luna {
 namespace app {
 
 namespace {
@@ -278,4 +278,4 @@ EstimatorResult runEstimator(const sim::SimConfig& cfg, const EstimatorOptions& 
 }
 
 }  // namespace app
-}  // namespace sc
+}  // namespace luna

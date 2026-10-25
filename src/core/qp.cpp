@@ -1,8 +1,8 @@
-#include "slamcore/core/qp.hpp"
+#include "luna/core/qp.hpp"
 
 #include <chrono>
 
-namespace sc {
+namespace luna {
 
 const char* toString(QpStatus s) {
   switch (s) {
@@ -207,4 +207,4 @@ Scalar QpSolver::objective() const {
   return 0.5 * x_.dot(P_ * x_) + q_.dot(x_);
 }
 
-}  // namespace sc
+}  // namespace luna

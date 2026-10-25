@@ -1,4 +1,4 @@
-#include "slamcore/core/alloc.hpp"
+#include "luna/core/alloc.hpp"
 
 // PoolAllocator and RingAllocator are header-only; this translation unit
 // exists so the core library has a stable symbol for the allocator module and
@@ -9,7 +9,7 @@
 #include <fstream>
 #include <string>
 
-namespace sc {
+namespace luna {
 
 namespace {
 
@@ -33,4 +33,4 @@ Size parseVmHWM() {
 /// Resident-set high-water mark in bytes, or 0 if /proc is unavailable.
 Size residentHighWaterBytes() { return parseVmHWM(); }
 
-}  // namespace sc
+}  // namespace luna

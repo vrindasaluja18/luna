@@ -1,9 +1,9 @@
-#include "slamcore/sim/faults.hpp"
+#include "luna/sim/faults.hpp"
 
 #include <algorithm>
 #include <sstream>
 
-namespace sc {
+namespace luna {
 namespace sim {
 
 const char* toString(FaultType t) {
@@ -169,4 +169,4 @@ void FaultInjector::applyOdom(Scalar t, OdomSample* s) {
 }
 
 }  // namespace sim
-}  // namespace sc
+}  // namespace luna

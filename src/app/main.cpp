@@ -1,8 +1,8 @@
-// SLAMCore-8G -- command line interface.
+// LUNA -- command line interface.
 //
-//   slamcore sim   -- generate a world, run the scripted route, render frames
-//   slamcore fe    -- run the frontend (FAST+BRIEF+KLT+stereo) over a sim run
-//   slamcore world -- print a world as ASCII and write a PGM occupancy map
+//   luna sim   -- generate a world, run the scripted route, render frames
+//   luna fe    -- run the frontend (FAST+BRIEF+KLT+stereo) over a sim run
+//   luna world -- print a world as ASCII and write a PGM occupancy map
 //
 // Everything here is CPU-only and self-contained: no datasets, no ROS, no GPU.
 // The `fe` subcommand is the end-to-end vertical slice the contract asks for,
@@ -14,36 +14,36 @@
 #include <string>
 #include <vector>
 
-#include "slamcore/app/estimator.hpp"
-#include "slamcore/app/navigation.hpp"
-#include "slamcore/bench/trajectory.hpp"
-#include "slamcore/frontend/features.hpp"
-#include "slamcore/sim/faults.hpp"
-#include "slamcore/sim/simulator.hpp"
+#include "luna/app/estimator.hpp"
+#include "luna/app/navigation.hpp"
+#include "luna/bench/trajectory.hpp"
+#include "luna/frontend/features.hpp"
+#include "luna/sim/faults.hpp"
+#include "luna/sim/simulator.hpp"
 
 namespace {
 
-using sc::Scalar;
-using sc::Size;
-using sc::Vec2;
-using sc::frontend::BriefOptions;
-using sc::frontend::BriefPattern;
-using sc::frontend::FastOptions;
-using sc::frontend::Feature;
-using sc::frontend::KltOptions;
-using sc::frontend::KltTracker;
-using sc::frontend::StereoOptions;
-using sc::sim::SimConfig;
-using sc::sim::Simulator;
-using sc::sim::SimResult;
-using sc::sim::SensorFrame;
-using sc::sim::World;
-using sc::sim::WorldSpec;
-using sc::sim::WorldType;
+using luna::Scalar;
+using luna::Size;
+using luna::Vec2;
+using luna::frontend::BriefOptions;
+using luna::frontend::BriefPattern;
+using luna::frontend::FastOptions;
+using luna::frontend::Feature;
+using luna::frontend::KltOptions;
+using luna::frontend::KltTracker;
+using luna::frontend::StereoOptions;
+using luna::sim::SimConfig;
+using luna::sim::Simulator;
+using luna::sim::SimResult;
+using luna::sim::SensorFrame;
+using luna::sim::World;
+using luna::sim::WorldSpec;
+using luna::sim::WorldType;
 
 int usage() {
   std::fprintf(stderr,
-               "usage: slamcore <command> [options]\n"
+               "usage: luna <command> [options]\n"
                "\n"
                "commands:\n"
                "  world [--type T] [--size M] [--seed N] [--rooms N] [--pgm FILE]\n"
@@ -108,7 +108,7 @@ SimConfig baseConfig(int argc, char** argv) {
   if (flag(argc, argv, "--faults")) {
     // The standard suite starts once the vehicle is moving and is spaced so
     // each fault is individually observable in the metrics.
-    cfg.faults = sc::sim::FaultSchedule::standardSuite(3.0, std::max(1.0, cfg.duration / 12.0));
+    cfg.faults = luna::sim::FaultSchedule::standardSuite(3.0, std::max(1.0, cfg.duration / 12.0));
   }
   return cfg;
 }
@@ -117,7 +117,7 @@ int cmdWorld(int argc, char** argv) {
   const SimConfig cfg = baseConfig(argc, argv);
   const World world = World::generate(cfg.world);
   const auto& st = world.stats();
-  std::printf("world type=%s seed=%llu size=%.1fm\n", sc::sim::toString(cfg.world.type),
+  std::printf("world type=%s seed=%llu size=%.1fm\n", luna::sim::toString(cfg.world.type),
               static_cast<unsigned long long>(cfg.world.seed), cfg.world.size_m);
   std::printf("  grid      : %dx%d cells @ %.2f m\n", world.grid().w, world.grid().h, world.grid().res);
   std::printf("  free area : %.1f m^2 (%zu cells)\n", st.freeArea, st.freeCells);
@@ -127,7 +127,7 @@ int cmdWorld(int argc, char** argv) {
   std::printf("  grid RAM  : %.1f KB\n", world.grid().bytes() / 1024.0);
   std::printf("\n%s\n", world.toAscii(96).c_str());
   if (const char* pgm = opt(argc, argv, "--pgm")) {
-    std::printf("wrote %s: %s\n", pgm, sc::sim::writePgm(pgm, world.grid()) ? "ok" : "FAILED");
+    std::printf("wrote %s: %s\n", pgm, luna::sim::writePgm(pgm, world.grid()) ? "ok" : "FAILED");
   }
   return 0;
 }
@@ -136,7 +136,7 @@ int cmdSim(int argc, char** argv) {
   const SimConfig cfg = baseConfig(argc, argv);
   Simulator sim(cfg);
   const SimResult r = sim.run(nullptr);
-  std::printf("sim type=%s seed=%llu duration=%.1fs\n", sc::sim::toString(cfg.world.type),
+  std::printf("sim type=%s seed=%llu duration=%.1fs\n", luna::sim::toString(cfg.world.type),
               static_cast<unsigned long long>(cfg.world.seed), cfg.duration);
   std::printf("  frames    : %zu (%zu dropped)\n", r.frames, r.dropped_frames);
   std::printf("  imu       : %zu samples\n", r.imu_samples);
@@ -152,7 +152,7 @@ int cmdSim(int argc, char** argv) {
     std::printf("  wrote %s: %s\n", lm.c_str(), r.truth.saveLandmarks(lm) ? "ok" : "FAILED");
   }
   if (const char* pgm = opt(argc, argv, "--pgm")) {
-    std::printf("  wrote %s: %s\n", pgm, sc::sim::writePgm(pgm, sim.world().grid()) ? "ok" : "FAILED");
+    std::printf("  wrote %s: %s\n", pgm, luna::sim::writePgm(pgm, sim.world().grid()) ? "ok" : "FAILED");
   }
   return 0;
 }
@@ -180,7 +180,7 @@ int cmdFrontend(int argc, char** argv) {
   KltTracker klt(klt_opt);
 
   Simulator sim(cfg);
-  sc::sim::Image prev;
+  luna::sim::Image prev;
   std::vector<Feature> prev_feats;
   bool have_prev = false;
 
@@ -197,11 +197,11 @@ int cmdFrontend(int argc, char** argv) {
 
     std::vector<Feature> feats;
     auto a = std::chrono::steady_clock::now();
-    sc::frontend::detectAndDescribe(f.image, pattern, fast, brief, &feats);
+    luna::frontend::detectAndDescribe(f.image, pattern, fast, brief, &feats);
     auto b = std::chrono::steady_clock::now();
 
     if (cfg.stereo && !f.image_right.px.empty()) {
-      sc::frontend::stereoDepth(f.image, f.image_right, cfg.camera, stereo_opt, &feats);
+      luna::frontend::stereoDepth(f.image, f.image_right, cfg.camera, stereo_opt, &feats);
       ++stereo_frames;
     }
     auto c = std::chrono::steady_clock::now();
@@ -251,7 +251,7 @@ int cmdFrontend(int argc, char** argv) {
   const Scalar wall = std::chrono::duration<double>(t1 - t0).count();
 
   const Scalar n_track_frames = frames > 0 ? static_cast<Scalar>(frames - 1) : 1.0;
-  std::printf("frontend type=%s seed=%llu frames=%zu faults=%s\n", sc::sim::toString(cfg.world.type),
+  std::printf("frontend type=%s seed=%llu frames=%zu faults=%s\n", luna::sim::toString(cfg.world.type),
               static_cast<unsigned long long>(cfg.world.seed), frames,
               flag(argc, argv, "--faults") ? "on" : "off");
   std::printf("  features  : %.1f detected/frame, %.1f tracked/frame (%.1f%% of detected)\n",
@@ -262,7 +262,7 @@ int cmdFrontend(int argc, char** argv) {
   std::printf("  track err : mean %.4f px, rms %.4f px, p95 %.4f px (n=%zu)\n",
               track_err_n ? track_err_sum / track_err_n : 0.0,
               track_err_n ? std::sqrt(track_err_sq / track_err_n) : 0.0,
-              sc::RunningStats::percentile(track_errs, 0.95), track_err_n);
+              luna::RunningStats::percentile(track_errs, 0.95), track_err_n);
   std::printf("  stereo    : %.1f valid depths/frame over %zu stereo frames\n",
               depth_valid / std::max<Scalar>(1.0, static_cast<Scalar>(stereo_frames)), stereo_frames);
   std::printf("  timing    : detect %.2f ms, track %.2f ms, stereo %.2f ms, total %.2f ms/frame\n",
@@ -285,7 +285,7 @@ int cmdFrontend(int argc, char** argv) {
 int cmdEstimate(int argc, char** argv) {
   SimConfig cfg = baseConfig(argc, argv);
   cfg.record_images = false;
-  sc::app::EstimatorOptions eopt;
+  luna::app::EstimatorOptions eopt;
   if (flag(argc, argv, "--no-incremental")) eopt.incremental = false;
   if (flag(argc, argv, "--no-loop")) {
     // Push the candidate gap beyond any possible index, so no pair is ever
@@ -296,9 +296,9 @@ int cmdEstimate(int argc, char** argv) {
   if (const char* v = opt(argc, argv, "--kf-dist")) eopt.loop.keyframe_distance = std::atof(v);
   if (const char* v = opt(argc, argv, "--fast")) eopt.fast_threshold = std::atoi(v);
 
-  const sc::app::EstimatorResult er = sc::app::runEstimator(cfg, eopt);
+  const luna::app::EstimatorResult er = luna::app::runEstimator(cfg, eopt);
 
-  std::printf("estimate type=%s seed=%llu duration=%.1fs\n", sc::sim::toString(cfg.world.type),
+  std::printf("estimate type=%s seed=%llu duration=%.1fs\n", luna::sim::toString(cfg.world.type),
               static_cast<unsigned long long>(cfg.world.seed), cfg.duration);
   std::printf("  keyframes : %zu (of %zu frames, %zu dropped)\n", er.stats.keyframes,
               er.stats.frames, er.stats.dropped_frames);
@@ -334,25 +334,25 @@ int cmdEstimate(int argc, char** argv) {
     const std::string od = std::string(prefix) + "_odom.tum";
     const std::string op = std::string(prefix) + "_slam.tum";
     std::printf("\n  wrote %s: %s\n", od.c_str(),
-                sc::bench::writeTum(od, er.odom_trajectory) ? "ok" : "FAILED");
+                luna::bench::writeTum(od, er.odom_trajectory) ? "ok" : "FAILED");
     std::printf("  wrote %s: %s\n", op.c_str(),
-                sc::bench::writeTum(op, er.optimised_trajectory) ? "ok" : "FAILED");
+                luna::bench::writeTum(op, er.optimised_trajectory) ? "ok" : "FAILED");
   }
   return er.ok ? 0 : 1;
 }
 
 int cmdNavigate(int argc, char** argv) {
   SimConfig cfg = baseConfig(argc, argv);
-  sc::app::NavigationOptions nopt;
+  luna::app::NavigationOptions nopt;
   nopt.drive = !flag(argc, argv, "--no-drive");
   if (const char* v = opt(argc, argv, "--inflation")) nopt.map_inflation_m = std::atof(v);
   if (const char* v = opt(argc, argv, "--kf-dist")) nopt.estimator.loop.keyframe_distance = std::atof(v);
   if (const char* v = opt(argc, argv, "--drive-duration")) nopt.drive_duration = std::atof(v);
 
-  const sc::app::NavigationResult nr = sc::app::runNavigation(cfg, nopt);
+  const luna::app::NavigationResult nr = luna::app::runNavigation(cfg, nopt);
   const auto& s = nr.stats;
   std::printf("navigate type=%s seed=%llu duration=%.1fs stereo=%d\n",
-              sc::sim::toString(cfg.world.type), static_cast<unsigned long long>(cfg.world.seed),
+              luna::sim::toString(cfg.world.type), static_cast<unsigned long long>(cfg.world.seed),
               cfg.duration, cfg.stereo ? 1 : 0);
   std::printf("\n  [SLAM]\n");
   std::printf("    keyframes      : %zu\n", s.keyframes);
@@ -374,7 +374,7 @@ int cmdNavigate(int argc, char** argv) {
   std::printf("    Morse complex  : %d nodes, %d edges (%d maxima, %d saddles), %.1f ms\n",
               s.morse_nodes, s.morse_edges, s.maxima, s.saddles, s.topology_ms);
   std::printf("\n  [PLAN]\n");
-  std::printf("    status         : %s\n", sc::planning::toString(s.plan_status));
+  std::printf("    status         : %s\n", luna::planning::toString(s.plan_status));
   std::printf("    length         : %.1f m, min clearance %.3f m, %.1f ms\n", s.plan_length,
               s.plan_clearance, s.plan_ms);
   std::printf("\n  [CONTROL]\n");
@@ -388,15 +388,15 @@ int cmdNavigate(int argc, char** argv) {
   if (const char* prefix = opt(argc, argv, "--out")) {
     const std::string pl = std::string(prefix) + "_plan.tum";
     const std::string dr = std::string(prefix) + "_drive.tum";
-    sc::bench::Trajectory pt, dt;
+    luna::bench::Trajectory pt, dt;
     for (Size i = 0; i < nr.planned_path.size(); ++i)
-      pt.push_back(sc::bench::TrajectoryPoint{static_cast<Scalar>(i) * 0.1,
-                                              sc::Pose2{nr.planned_path[i].x(), nr.planned_path[i].y(), 0}});
+      pt.push_back(luna::bench::TrajectoryPoint{static_cast<Scalar>(i) * 0.1,
+                                              luna::Pose2{nr.planned_path[i].x(), nr.planned_path[i].y(), 0}});
     for (Size i = 0; i < nr.driven_path.size(); ++i)
-      dt.push_back(sc::bench::TrajectoryPoint{static_cast<Scalar>(i) * 0.05,
-                                              sc::Pose2{nr.driven_path[i].x(), nr.driven_path[i].y(), 0}});
-    std::printf("\n  wrote %s: %s\n", pl.c_str(), sc::bench::writeTum(pl, pt) ? "ok" : "FAILED");
-    std::printf("  wrote %s: %s\n", dr.c_str(), sc::bench::writeTum(dr, dt) ? "ok" : "FAILED");
+      dt.push_back(luna::bench::TrajectoryPoint{static_cast<Scalar>(i) * 0.05,
+                                              luna::Pose2{nr.driven_path[i].x(), nr.driven_path[i].y(), 0}});
+    std::printf("\n  wrote %s: %s\n", pl.c_str(), luna::bench::writeTum(pl, pt) ? "ok" : "FAILED");
+    std::printf("  wrote %s: %s\n", dr.c_str(), luna::bench::writeTum(dr, dt) ? "ok" : "FAILED");
   }
   return nr.ok ? 0 : 1;
 }

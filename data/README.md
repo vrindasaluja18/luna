@@ -3,7 +3,7 @@
 This directory holds public datasets for evaluation. The dataset payloads are
 not committed (see `.gitignore`); only this description is tracked.
 
-None of these are wired up yet. The `slamcore` CLI currently reads no external
+None of these are wired up yet. The `luna` CLI currently reads no external
 data, so only the built-in simulator is usable end to end. These directories
 are placeholders for the evaluation harness that is still to be written.
 

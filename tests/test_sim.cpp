@@ -1,4 +1,4 @@
-// SLAMCore-8G -- simulator tests.
+// LUNA -- simulator tests.
 //
 // The simulator is the project's ground truth, so it has to be trustworthy
 // before anything measured against it means anything. These tests check the
@@ -11,15 +11,15 @@
 #include <string>
 #include <vector>
 
-#include "slamcore/sim/faults.hpp"
-#include "slamcore/sim/sensors.hpp"
-#include "slamcore/sim/simulator.hpp"
-#include "slamcore/sim/vehicle.hpp"
-#include "slamcore/sim/world.hpp"
+#include "luna/sim/faults.hpp"
+#include "luna/sim/sensors.hpp"
+#include "luna/sim/simulator.hpp"
+#include "luna/sim/vehicle.hpp"
+#include "luna/sim/world.hpp"
 #include "test_util.hpp"
 
-using namespace sc;
-using namespace sc::sim;
+using namespace luna;
+using namespace luna::sim;
 
 namespace {
 
@@ -39,19 +39,19 @@ void testWorldGeneration() {
   for (WorldType t : kAllTypes) {
     const World w = World::generate(spec(t));
     const auto& g = w.grid();
-    SC_CHECK(g.w > 0 && g.h > 0);
-    SC_CHECK(g.cells.size() == static_cast<Size>(g.w) * g.h);
-    SC_CHECK(w.stats().freeCells > 0);
-    SC_CHECK(w.stats().occupiedCells > 0);
-    SC_CHECK(w.stats().freeArea > 0);
+    LUNA_CHECK(g.w > 0 && g.h > 0);
+    LUNA_CHECK(g.cells.size() == static_cast<Size>(g.w) * g.h);
+    LUNA_CHECK(w.stats().freeCells > 0);
+    LUNA_CHECK(w.stats().occupiedCells > 0);
+    LUNA_CHECK(w.stats().freeArea > 0);
     // Landmarks must sit in free space, otherwise the renderer would draw them
     // inside a wall and every measurement would be wrong.
     int in_free = 0;
     for (const Landmark& lm : w.landmarks())
       if (g.isFreeWorld(lm.p)) ++in_free;
-    SC_CHECK(in_free == static_cast<int>(w.landmarks().size()));
+    LUNA_CHECK(in_free == static_cast<int>(w.landmarks().size()));
     // Clearance is defined on every cell.
-    SC_CHECK(w.clearance().size() == g.cells.size());
+    LUNA_CHECK(w.clearance().size() == g.cells.size());
   }
 }
 
@@ -61,10 +61,10 @@ void testWorldDeterminism() {
   const World a = World::generate(spec(WorldType::kRooms, 11));
   const World b = World::generate(spec(WorldType::kRooms, 11));
   const World c = World::generate(spec(WorldType::kRooms, 12));
-  SC_CHECK(a.grid().cells == b.grid().cells);
-  SC_CHECK(a.landmarks().size() == b.landmarks().size());
-  SC_CHECK(a.grid().cells != c.grid().cells);
-  SC_CHECK(a.toAscii(64) == b.toAscii(64));
+  LUNA_CHECK(a.grid().cells == b.grid().cells);
+  LUNA_CHECK(a.landmarks().size() == b.landmarks().size());
+  LUNA_CHECK(a.grid().cells != c.grid().cells);
+  LUNA_CHECK(a.toAscii(64) == b.toAscii(64));
 }
 
 void testRaycastAndLineOfSight() {
@@ -81,19 +81,19 @@ void testRaycastAndLineOfSight() {
     const Scalar ang = rng.uniform(0.0, kTwoPi);
     const Vec2 dir(std::cos(ang), std::sin(ang));
     const Scalar r = w.raycast(p, dir, 20.0);
-    SC_CHECK(r >= 0.0 && r <= 20.0);
+    LUNA_CHECK(r >= 0.0 && r <= 20.0);
     // Just before the reported hit there must be no occupied cell.
     if (r < 19.9) {
       const Vec2 just = p + dir * (r - 0.2);
-      SC_CHECK(!g.isOccupiedWorld(just));
+      LUNA_CHECK(!g.isOccupiedWorld(just));
     }
     // Line of sight must agree: a point before the hit is visible, a point
     // after it is not.
-    if (r > 1.0) SC_CHECK(w.lineOfSight(p, p + dir * (r - 0.3)));
-    if (r < 18.0) SC_CHECK(!w.lineOfSight(p, p + dir * (r + 0.5)));
+    if (r > 1.0) LUNA_CHECK(w.lineOfSight(p, p + dir * (r - 0.3)));
+    if (r < 18.0) LUNA_CHECK(!w.lineOfSight(p, p + dir * (r + 0.5)));
     ++tested;
   }
-  SC_CHECK(tested > 20);
+  LUNA_CHECK(tested > 20);
 }
 
 void testGridPath() {
@@ -106,15 +106,15 @@ void testGridPath() {
   const Vec2 b = w.grid().cellCenter(g.w * 5 / 6, g.h * 5 / 6);
   (void)rng;
   const std::vector<Vec2> path = w.gridPath(a, b, 0.3);
-  SC_CHECK(!path.empty());
-  for (const Vec2& p : path) SC_CHECK(g.isFreeWorld(p));
+  LUNA_CHECK(!path.empty());
+  for (const Vec2& p : path) LUNA_CHECK(g.isFreeWorld(p));
   const std::vector<Vec2> short_path = w.shortcut(path);
-  SC_CHECK(!short_path.empty());
-  SC_CHECK(short_path.size() <= path.size());
+  LUNA_CHECK(!short_path.empty());
+  LUNA_CHECK(short_path.size() <= path.size());
   // Shortcut segments must remain collision-free, which is the property the
   // scripted route depends on.
   for (Size i = 1; i < short_path.size(); ++i)
-    SC_CHECK(w.lineOfSight(short_path[i - 1], short_path[i]));
+    LUNA_CHECK(w.lineOfSight(short_path[i - 1], short_path[i]));
   // An unreachable target (inside a wall) yields no path.
   Vec2 wall = a;
   for (int y = 0; y < g.h && g.isFreeWorld(wall); ++y)
@@ -124,7 +124,7 @@ void testGridPath() {
         y = g.h;
         break;
       }
-  SC_CHECK(w.gridPath(a, wall, 0.0).empty());
+  LUNA_CHECK(w.gridPath(a, wall, 0.0).empty());
 }
 
 void testRouteStaysFree() {
@@ -132,10 +132,10 @@ void testRouteStaysFree() {
     const World w = World::generate(spec(t));
     Rng rng(4);
     const std::vector<Vec2> route = buildRoute(w, &rng);
-    SC_CHECK(route.size() >= 2);
-    for (const Vec2& p : route) SC_CHECK(w.grid().isFreeWorld(p));
+    LUNA_CHECK(route.size() >= 2);
+    for (const Vec2& p : route) LUNA_CHECK(w.grid().isFreeWorld(p));
     // The route must be drivable: its narrowest point is a real bottleneck.
-    SC_CHECK(w.minCorridorWidth(route) > 0.0);
+    LUNA_CHECK(w.minCorridorWidth(route) > 0.0);
   }
 }
 
@@ -152,10 +152,10 @@ void testVehicleBicycleModel() {
   Control cmd;
   cmd.v = 1.0;
   for (int i = 0; i < 100; ++i) veh.step(cmd, 0.01);
-  SC_NEAR(veh.state().pose.x, 1.0, 1e-6);
-  SC_NEAR(veh.state().pose.y, 0.0, 1e-9);
-  SC_NEAR(veh.state().pose.th, 0.0, 1e-9);
-  SC_NEAR(veh.distanceTravelled(), 1.0, 1e-6);
+  LUNA_NEAR(veh.state().pose.x, 1.0, 1e-6);
+  LUNA_NEAR(veh.state().pose.y, 0.0, 1e-9);
+  LUNA_NEAR(veh.state().pose.th, 0.0, 1e-9);
+  LUNA_NEAR(veh.distanceTravelled(), 1.0, 1e-6);
 
   // Constant steering traces a circle of radius L / tan(delta) about a centre
   // offset laterally by that radius.
@@ -175,9 +175,9 @@ void testVehicleBicycleModel() {
   // ramp (roughly 0.5 * ramp_time * yaw_rate of heading, and a similar radial
   // offset) while still catching a wrong wheelbase or a wrong yaw-rate law.
   const Scalar ramp = delta / params.max_steer_rate;
-  SC_NEAR(circ.state().pose.th, wrapPi(yaw_rate * (10.0 - 0.5 * ramp)), 0.02);
+  LUNA_NEAR(circ.state().pose.th, wrapPi(yaw_rate * (10.0 - 0.5 * ramp)), 0.02);
   const Vec2 centre(0.0, radius);
-  SC_NEAR((Vec2(circ.state().pose.x, circ.state().pose.y) - centre).norm(), radius, 0.12);
+  LUNA_NEAR((Vec2(circ.state().pose.x, circ.state().pose.y) - centre).norm(), radius, 0.12);
 
   // A velocity command must actually move the vehicle. An accel-only plant
   // ignores `v` and leaves the vehicle stationary, which is the bug this
@@ -186,25 +186,25 @@ void testVehicleBicycleModel() {
   Control go;
   go.v = 2.0;
   for (int i = 0; i < 100; ++i) from_rest.step(go, 0.01);
-  SC_CHECK(from_rest.state().pose.x > 1.0);
-  SC_NEAR(from_rest.state().v, 2.0, 1e-6);
+  LUNA_CHECK(from_rest.state().pose.x > 1.0);
+  LUNA_NEAR(from_rest.state().v, 2.0, 1e-6);
 }
 
 void testProjection() {
   CameraModel cam;
   // A point straight ahead projects to the principal point.
   Vec2 px;
-  SC_CHECK(project(cam, Vec3(5.0, 0.0, 0.0), &px));
-  SC_NEAR(px.x(), cam.cx, 1e-9);
-  SC_NEAR(px.y(), cam.cy, 1e-9);
+  LUNA_CHECK(project(cam, Vec3(5.0, 0.0, 0.0), &px));
+  LUNA_NEAR(px.x(), cam.cx, 1e-9);
+  LUNA_NEAR(px.y(), cam.cy, 1e-9);
   // A point behind the camera does not project.
-  SC_CHECK(!project(cam, Vec3(-1.0, 0.0, 0.0), &px));
+  LUNA_CHECK(!project(cam, Vec3(-1.0, 0.0, 0.0), &px));
   // Lateral offset maps to a pixel offset of -fx * y / z (camera +y is left).
-  SC_CHECK(project(cam, Vec3(10.0, 1.0, 0.0), &px));
-  SC_NEAR(px.x(), cam.cx - cam.fx * 0.1, 1e-9);
+  LUNA_CHECK(project(cam, Vec3(10.0, 1.0, 0.0), &px));
+  LUNA_NEAR(px.x(), cam.cx - cam.fx * 0.1, 1e-9);
   // Vertical offset maps through fy with the z-up convention.
-  SC_CHECK(project(cam, Vec3(10.0, 0.0, 1.0), &px));
-  SC_NEAR(px.y(), cam.cy - cam.fy * 0.1, 1e-9);
+  LUNA_CHECK(project(cam, Vec3(10.0, 0.0, 1.0), &px));
+  LUNA_NEAR(px.y(), cam.cy - cam.fy * 0.1, 1e-9);
 }
 
 /// The stereo pair must actually differ by the disparity the geometry predicts.
@@ -232,8 +232,8 @@ void testStereoDisparity() {
     pose = f.ground_truth;
     have = true;
   });
-  SC_CHECK(!left.px.empty() && !right.px.empty());
-  SC_CHECK(left.px != right.px);  // the two views must not be identical
+  LUNA_CHECK(!left.px.empty() && !right.px.empty());
+  LUNA_CHECK(left.px != right.px);  // the two views must not be identical
 
   // For a landmark at depth Z the right camera sees it at u_left + fx*b/Z.
   // Compare the rendered pixel offset against the true projection in the right
@@ -267,13 +267,13 @@ void testStereoDisparity() {
       }
     }
     // A landmark at finite range must show a strictly positive disparity.
-    SC_CHECK(best_d > 0);
+    LUNA_CHECK(best_d > 0);
     // And the implied depth must be inside the world, not off the map.
     const Scalar depth = cfg.camera.fx * cfg.camera.baseline / best_d;
-    SC_CHECK(depth > 0.2 && depth < 40.0);
+    LUNA_CHECK(depth > 0.2 && depth < 40.0);
     ++checked;
   }
-  SC_CHECK(checked > 0);
+  LUNA_CHECK(checked > 0);
   (void)pose;
   (void)w;
 }
@@ -294,18 +294,18 @@ void testImuGravity() {
   // Level, still: the accelerometer sees only gravity. The sign convention is
   // the filter's, so this pins it down.
   for (int i = 0; i < 10; ++i) imu.step(0.01 * (i + 1), 0.0, 0.0, 0.0, &out);
-  SC_CHECK(!out.empty());
-  SC_NEAR(std::abs(out.back().accel.z()), noise.gravity, 1e-6);
-  SC_NEAR(out.back().accel.x(), 0.0, 1e-6);
-  SC_NEAR(out.back().accel.y(), 0.0, 1e-6);
-  SC_NEAR(out.back().gyro.norm(), 0.0, 1e-6);
+  LUNA_CHECK(!out.empty());
+  LUNA_NEAR(std::abs(out.back().accel.z()), noise.gravity, 1e-6);
+  LUNA_NEAR(out.back().accel.x(), 0.0, 1e-6);
+  LUNA_NEAR(out.back().accel.y(), 0.0, 1e-6);
+  LUNA_NEAR(out.back().gyro.norm(), 0.0, 1e-6);
 
   // Accelerating forward adds a specific force along body +x.
   ImuEmulator imu2(noise, 100.0, 1);
   std::vector<ImuSample> out2;
   for (int i = 0; i < 10; ++i) imu2.step(0.01 * (i + 1), 1.0, 0.0, 2.0, &out2);
-  SC_CHECK(!out2.empty());
-  SC_NEAR(out2.back().accel.x(), 2.0, 1e-6);
+  LUNA_CHECK(!out2.empty());
+  LUNA_NEAR(out2.back().accel.x(), 2.0, 1e-6);
 }
 
 /// Odometry must report the true motion up to its modelled error, and the
@@ -324,37 +324,37 @@ void testOdomScale() {
   // The realised scale error is drawn once, so the measurement is consistently
   // scaled: mean error must be near the nominal 1%, not zero.
   const Scalar rel = (sum / n) - 1.0;
-  SC_CHECK(std::abs(rel) > 1e-4);
-  SC_CHECK(std::abs(rel) < 0.05);
+  LUNA_CHECK(std::abs(rel) > 1e-4);
+  LUNA_CHECK(std::abs(rel) < 0.05);
 }
 
 void testFaultSchedule() {
   const FaultSchedule sched = FaultSchedule::standardSuite(2.0, 1.0);
-  SC_CHECK(!sched.events().empty());
-  SC_CHECK(!sched.describe().empty());
+  LUNA_CHECK(!sched.events().empty());
+  LUNA_CHECK(!sched.describe().empty());
   // An event is active inside its window and not outside it.
   const FaultEvent e = sched.events().front();
-  SC_CHECK(e.active(e.t_start));
-  SC_CHECK(!e.active(e.t_start - 0.001));
-  SC_CHECK(!e.active(e.t_start + e.duration));
+  LUNA_CHECK(e.active(e.t_start));
+  LUNA_CHECK(!e.active(e.t_start - 0.001));
+  LUNA_CHECK(!e.active(e.t_start + e.duration));
   // Every standard-suite event must be individually addressable by type.
   FaultInjector inj(sched);
   Image img;
   img.resize(8, 8);
   inj.applyCamera(e.t_start, &img);
-  SC_CHECK(!sched.active(FaultType::kNone, e.t_start));
+  LUNA_CHECK(!sched.active(FaultType::kNone, e.t_start));
 }
 
 void testImageHelpers() {
   Image im;
   im.resize(4, 3);
-  SC_CHECK(im.w == 4 && im.h == 3);
-  SC_CHECK(im.bytes() == 12);
-  SC_CHECK(im.inBounds(3, 2));
-  SC_CHECK(!im.inBounds(4, 2));
+  LUNA_CHECK(im.w == 4 && im.h == 3);
+  LUNA_CHECK(im.bytes() == 12);
+  LUNA_CHECK(im.inBounds(3, 2));
+  LUNA_CHECK(!im.inBounds(4, 2));
   im.at(2, 1) = 200;
-  SC_CHECK(im.at(2, 1) == 200);
-  SC_CHECK(static_cast<const Image&>(im).at(2, 1) == 200);
+  LUNA_CHECK(im.at(2, 1) == 200);
+  LUNA_CHECK(static_cast<const Image&>(im).at(2, 1) == 200);
 }
 
 void run() {
@@ -374,4 +374,4 @@ void run() {
 
 }  // namespace
 
-SC_TEST_MAIN("test_sim")
+LUNA_TEST_MAIN("test_sim")

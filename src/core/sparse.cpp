@@ -1,4 +1,4 @@
-#include "slamcore/core/sparse.hpp"
+#include "luna/core/sparse.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -6,7 +6,7 @@
 #include <Eigen/Cholesky>
 #include <Eigen/LU>
 
-namespace sc {
+namespace luna {
 
 SparseSystem::SparseSystem(Size n_vars, Size nnz_hint) { reset(n_vars, nnz_hint); }
 
@@ -164,4 +164,4 @@ bool sparseCholeskySolve(const SpMat& H, const VecX& b, VecX* x) {
   return true;
 }
 
-}  // namespace sc
+}  // namespace luna

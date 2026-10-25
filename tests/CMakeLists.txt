@@ -1,4 +1,4 @@
-# SLAMCore-8G test suite.
+# LUNA test suite.
 #
 # One executable per module, registered with CTest. Tests are deliberately
 # analytic where possible: SE(3) identities, Morse test functions, and the
@@ -7,25 +7,25 @@
 # always computed independently of the code under test.
 
 add_executable(test_core test_core.cpp)
-target_link_libraries(test_core PRIVATE sc_core)
+target_link_libraries(test_core PRIVATE luna_core)
 
 add_executable(test_sim test_sim.cpp)
-target_link_libraries(test_sim PRIVATE sc_core sc_sim)
+target_link_libraries(test_sim PRIVATE luna_core luna_sim)
 
 add_executable(test_frontend test_frontend.cpp)
-target_link_libraries(test_frontend PRIVATE sc_core sc_sim sc_frontend)
+target_link_libraries(test_frontend PRIVATE luna_core luna_sim luna_frontend)
 
 add_executable(test_backend test_backend.cpp)
-target_link_libraries(test_backend PRIVATE sc_core sc_sim sc_frontend sc_backend sc_bench)
+target_link_libraries(test_backend PRIVATE luna_core luna_sim luna_frontend luna_backend luna_bench)
 
 add_executable(test_determinism test_determinism.cpp)
-target_link_libraries(test_determinism PRIVATE sc_core sc_sim sc_frontend)
+target_link_libraries(test_determinism PRIVATE luna_core luna_sim luna_frontend)
 
 add_executable(test_estimator test_estimator.cpp)
-target_link_libraries(test_estimator PRIVATE sc_app)
+target_link_libraries(test_estimator PRIVATE luna_app)
 
 add_executable(test_navigation test_navigation.cpp)
-target_link_libraries(test_navigation PRIVATE sc_app)
+target_link_libraries(test_navigation PRIVATE luna_app)
 
 add_test(NAME core COMMAND test_core)
 add_test(NAME sim COMMAND test_sim)

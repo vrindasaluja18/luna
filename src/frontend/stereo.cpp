@@ -1,15 +1,15 @@
-// SLAMCore-8G -- stereo block matching for sparse feature depth.
+// LUNA -- stereo block matching for sparse feature depth.
 //
 // Dense depth is not needed: the frontend only needs a depth for the features
 // it tracks, so this is a per-feature SAD search along the epipolar line. Three
 // gates keep the output usable: a uniqueness ratio, left-right consistency, and
 // a depth range. Without them a feature near a wall silently reports the wall's
 // depth, which is a confident but wrong measurement.
-#include "slamcore/frontend/features.hpp"
+#include "luna/frontend/features.hpp"
 
 #include <limits>
 
-namespace sc {
+namespace luna {
 namespace frontend {
 
 // ---------------------------------------------------------------------------
@@ -111,4 +111,4 @@ void stereoDepth(const sim::Image& left, const sim::Image& right, const sim::Cam
 }
 
 }  // namespace frontend
-}  // namespace sc
+}  // namespace luna

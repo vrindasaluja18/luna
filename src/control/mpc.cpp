@@ -1,11 +1,11 @@
-#include "slamcore/control/mpc.hpp"
+#include "luna/control/mpc.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cassert>
 #include <cmath>
 
-namespace sc {
+namespace luna {
 namespace control {
 
 const char* toString(ControlStatus s) {
@@ -766,4 +766,4 @@ ControllerOutput MpcController::step(const VehicleEstimate& est, const planning:
 }
 
 }  // namespace control
-}  // namespace sc
+}  // namespace luna

@@ -1,4 +1,4 @@
-// SLAMCore-8G -- shared test scaffolding.
+// LUNA -- shared test scaffolding.
 //
 // A tiny assertion harness instead of a framework dependency: the project's
 // whole premise is "git clone && make", so the test binary must build with
@@ -46,9 +46,9 @@ inline int finish(const char* name) {
 
 }  // namespace sctest
 
-#define SC_CHECK(cond) ::sctest::truth(__FILE__, __LINE__, #cond, (cond))
-#define SC_NEAR(got, want, tol) ::sctest::near(__FILE__, __LINE__, #got, (got), (want), (tol))
-#define SC_TEST_MAIN(name)            \
+#define LUNA_CHECK(cond) ::sctest::truth(__FILE__, __LINE__, #cond, (cond))
+#define LUNA_NEAR(got, want, tol) ::sctest::near(__FILE__, __LINE__, #got, (got), (want), (tol))
+#define LUNA_TEST_MAIN(name)            \
   int main() {                        \
     run();                            \
     return ::sctest::finish(name);    \

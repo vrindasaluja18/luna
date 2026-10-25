@@ -1,13 +1,13 @@
-#include "slamcore/planning/planner.hpp"
+#include "luna/planning/planner.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <deque>
-#include "slamcore/topology/morse.hpp"
+#include "luna/topology/morse.hpp"
 #include <limits>
 
-namespace sc {
+namespace luna {
 namespace planning {
 namespace {
 
@@ -626,4 +626,4 @@ Plan CorridorPlanner::planToNodeImpl(const Vec2& start, const Vec2& goal, int st
 }
 
 }  // namespace planning
-}  // namespace sc
+}  // namespace luna

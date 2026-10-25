@@ -1,15 +1,15 @@
-// SLAMCore-8G -- BRIEF descriptors.
+// LUNA -- BRIEF descriptors.
 //
 // BRIEF is implemented with a *fixed, seeded* sampling pattern so descriptors
 // are reproducible across machines and runs. Descriptors are 256 bits packed
 // into four 64-bit words, which is what makes the descriptor DB cheap: one
 // XOR-popcount per candidate pair, and an LRU index that costs 32 bytes per
 // keyframe.
-#include "slamcore/frontend/features.hpp"
+#include "luna/frontend/features.hpp"
 
 #include <cstdlib>
 
-namespace sc {
+namespace luna {
 namespace frontend {
 
 // ---------------------------------------------------------------------------
@@ -78,4 +78,4 @@ void detectAndDescribe(const sim::Image& img, const BriefPattern& pattern, const
   }
 }
 }  // namespace frontend
-}  // namespace sc
+}  // namespace luna

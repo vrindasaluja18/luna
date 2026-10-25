@@ -1,7 +1,17 @@
-# SLAMCore-8G
+# LUNA
 
 A CPU-only, no-CUDA SLAM and navigation stack that runs inside 8 GB of RAM on
 4 CPU cores, with no ROS and no GPU. C++17; Eigen is the only dependency.
+
+![LUNA navigation scenario](docs/figures/navigation_scenario.svg)
+
+*A reference navigation scenario: the estimated path (blue) tracked against
+truth (green), the initial plan (cyan dashed), the Morse corridor graph with its
+maxima and saddles labelled by passage width (purple), map features and SLAM
+landmarks (orange dots, red rings), and a dynamic obstacle (red box). This is an
+illustration of the intended output, not a figure the current build emits --
+`navigate` reports the numbers below as text and writes trajectories as TUM
+files. Rendering this figure directly from a run is future work.*
 
 ## What is actually implemented
 
@@ -19,7 +29,7 @@ all against the built-in simulator.
 | `topology` | working | Morse complex: height function, critical-point classification, persistence filtering, corridor graph |
 | `planning` | working | corridor-graph A* with a grid-A* fallback, B-spline smoothing, collision verification |
 | `control` | working | bicycle-model MPC (CPU), chance constraints from SLAM covariance, divergence watchdog |
-| `app` | working | `slamcore` CLI: `world`, `sim`, `fe`, `estimate`, `navigate` |
+| `app` | working | `luna` CLI: `world`, `sim`, `fe`, `estimate`, `navigate` |
 
 Not yet implemented: `loopclose` is folded into the backend's closure path
 rather than a separate module. Dataset drivers (EuRoC, KITTI, TUM-VI, MALAGA)
@@ -39,27 +49,27 @@ in that report is hand-written.
 
 ```sh
 # Render a generated world as ASCII.
-./build/slamcore world --type maze --seed 7
+./build/luna world --type maze --seed 7
 
 # Run the scripted reference route and report timing and collisions.
-./build/slamcore sim --type rooms --seed 7 --duration 30
+./build/luna sim --type rooms --seed 7 --duration 30
 
 # Write ground truth for external evaluation.
-./build/slamcore sim --type rooms --seed 7 --duration 30 --out /tmp/run
+./build/luna sim --type rooms --seed 7 --duration 30 --out /tmp/run
 #   -> /tmp/run_gt.tum        trajectory, TUM format
 #   -> /tmp/run_landmarks.txt landmark field
 
 # Run the visual frontend and report its metrics.
-./build/slamcore fe --type rooms --seed 7 --duration 20
+./build/luna fe --type rooms --seed 7 --duration 20
 
 # Run SLAM + pose graph + loop closure and score against ground truth.
-./build/slamcore estimate --type rooms --seed 6 --duration 300
+./build/luna estimate --type rooms --seed 6 --duration 300
 
 # Run the full autonomy loop: SLAM -> map -> topology -> plan -> drive.
-./build/slamcore navigate --type rooms --seed 6
+./build/luna navigate --type rooms --seed 6
 
 # Inject sensor faults (dropouts, noise, stalls).
-./build/slamcore sim --type corridor_loop --seed 3 --duration 30 --faults
+./build/luna sim --type corridor_loop --seed 3 --duration 30 --faults
 ```
 
 World types: `rooms`, `corridor_loop`, `saddle_hall`, `maze`, `cluttered`,
@@ -109,7 +119,7 @@ cannot follow it. This is reported rather than hidden.
 
 ## The navigation pipeline
 
-`slamcore navigate` runs the whole stack in one process: SLAM (frontend +
+`luna navigate` runs the whole stack in one process: SLAM (frontend +
 pose graph) -> occupancy map -> Morse topology -> corridor planning -> MPC
 control, then scores the drive against the *real* world, not the map it built.
 A stack can plan perfectly on its own map and still hit walls; only a world
@@ -174,7 +184,7 @@ instead would report near-zero tracking error for a stack that cannot localize,
 and spawning the body at the estimate instead would drop it onto its own error,
 sometimes inside a wall.
 
-`SC_TRACE=1` prints a per-tick line with the estimate pose, progress, lateral
+`LUNA_TRACE=1` prints a per-tick line with the estimate pose, progress, lateral
 and heading error, the chance-constraint tube margin, the commanded speed, and
 the stop reason, which is how the loops above were diagnosed.
 
@@ -200,7 +210,7 @@ calls CUDA, OpenCL, or a GPU API.
 
 - Datasets (EuRoC, KITTI, TUM-VI, MALAGA) are not yet wired up; `data/` holds
   empty placeholders. Only the built-in simulator is usable end to end.
-- The estimator is wired up (`slamcore estimate`), but its only measurement
+- The estimator is wired up (`luna estimate`), but its only measurement
   source is wheel odometry fused with the gyro. The camera is used for loop
   closure and not yet for structure, so the frontend's features constrain
   nothing but the loop-closure index. A visual-inertial frontend that actually
@@ -219,7 +229,7 @@ calls CUDA, OpenCL, or a GPU API.
 
 ## Measured accuracy
 
-`slamcore estimate --type rooms --seed 6 --duration 300`, 177.9 m of travel:
+`luna estimate --type rooms --seed 6 --duration 300`, 177.9 m of travel:
 
 | estimate | ATE (m) | ATE (% of distance) |
 |---|---|---|
