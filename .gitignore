@@ -1,0 +1,30 @@
+# Build output
+build/
+*.o
+*.a
+*.so
+compile_commands.json
+
+# Benchmark and evaluation artefacts
+*.tum
+*_landmarks.txt
+*.pgm
+*.mcap
+*.db
+*.sqlite
+docs/figures/*.png
+
+# Dataset payloads: the directories are tracked, the data is not.
+data/**/*.bag
+data/**/*.zip
+data/**/*.tar
+data/**/*.gz
+data/**/mav0/
+data/**/poses/
+data/**/sequences/
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
