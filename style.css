@@ -1,0 +1,106 @@
+/* Luna — one page about one idea: data as a point space, and clusters.
+   Light paper, system fonts, no external requests. Readable first. */
+
+:root {
+  --paper:    #fbfaf6;
+  --paper-2:  #f2f0e9;
+  --ink:      #17161a;
+  --ink-2:    #4b4950;
+  --mute:     #8b877f;
+  --rule:     #e5e1d7;
+  --rule-2:   #d5d1c5;
+  --accent:   #2b6a6a;   /* teal   — density, clusters */
+  --accent-2: #c25a3c;   /* clay   — the merge event */
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --measure: 34rem;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.19rem;
+  line-height: 1.64;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 47rem; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ---------- hero ---------- */
+
+.hero { padding: 6rem 0 2.6rem; }
+.hero .kicker {
+  font-family: var(--mono); font-size: .76rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 1.3rem;
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 6.4vw, 3.6rem); line-height: 1.06;
+  font-weight: 400; letter-spacing: -.012em; margin: 0 0 1.2rem;
+}
+.hero .lede { font-size: 1.26rem; color: var(--ink-2); max-width: var(--measure); margin: 0; }
+
+/* ---------- sections ---------- */
+
+section { padding: 2.7rem 0; border-top: 1px solid var(--rule); }
+
+h2 { font-size: 1.6rem; font-weight: 400; letter-spacing: -.01em; margin: 0 0 .5rem; }
+.sec-kicker {
+  font-family: var(--mono); font-size: .71rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--mute); margin: 0 0 .75rem;
+}
+
+p { margin: 0 0 1.15rem; max-width: var(--measure); }
+p:last-child { margin-bottom: 0; }
+strong { font-weight: 600; }
+
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule-2); }
+a:hover { border-bottom-color: var(--accent); }
+
+/* ---------- animation ---------- */
+
+figure.anim { margin: 1.9rem 0 .5rem; }
+
+.canvas-box {
+  position: relative; border: 1px solid var(--rule); border-radius: 7px;
+  background: #fff; overflow: hidden;
+}
+.canvas-box canvas { display: block; width: 100%; height: 330px; }
+
+figcaption {
+  font-family: var(--sans); font-size: .89rem; line-height: 1.52;
+  color: var(--mute); margin-top: .75rem; max-width: var(--measure);
+}
+figcaption b { color: var(--ink-2); font-weight: 600; }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: .5rem 1.35rem;
+  font-family: var(--mono); font-size: .73rem; color: var(--ink-2); margin-top: .85rem;
+}
+.legend span { display: inline-flex; align-items: center; gap: .45rem; }
+.swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+/* ---------- pull quote ---------- */
+
+.pull {
+  border-left: 3px solid var(--accent); padding: .25rem 0 .25rem 1.25rem;
+  margin: 1.7rem 0; font-size: 1.3rem; line-height: 1.5;
+  max-width: var(--measure);
+}
+
+/* ---------- footer ---------- */
+
+footer {
+  padding: 2.5rem 0 3.6rem; font-family: var(--sans); font-size: .84rem;
+  color: var(--mute); border-top: 1px solid var(--rule);
+}
+footer a { color: var(--ink-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-box canvas { height: 310px; }
+}

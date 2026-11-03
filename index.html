@@ -3,438 +3,178 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LUNA — CPU-only SLAM &amp; navigation stack</title>
-<meta name="description" content="LUNA: a CPU-only SLAM, planning and control stack with a built-in 2D simulator. No GPU, no ROS, ~19 MB RSS. C++17, Eigen-only.">
-<meta name="theme-color" content="#07080a">
-<meta property="og:title" content="LUNA — CPU-only SLAM &amp; navigation stack">
-<meta property="og:description" content="SLAM → mapping → Morse topology → corridor planning → MPC control, all on CPU. No GPU, no ROS.">
-<meta property="og:type" content="website">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffb454'/%3E%3Ccircle cx='21' cy='13' r='12' fill='%2307080a'/%3E%3C/svg%3E">
+<title>Luna — data as a point space, and clusters</title>
+<meta name="description" content="One idea, shown with two animations: data is a point space, and clusters are the shapes in it. What Luna is for.">
+<meta name="color-scheme" content="light">
+<style>
+  /* Inlined critical style so the page paints immediately; the rest is style.css. */
+  body { margin:0; background:#fbfaf6; color:#17161a;
+         font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; }
+</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header class="topbar">
-  <a class="brand" href="#top"><span class="dot" aria-hidden="true"></span>LUNA</a>
-  <nav class="topnav" aria-label="Sections">
-    <a href="#purpose">Purpose</a>
-    <a href="#pipeline">Pipeline</a>
-    <a href="#simulator">Simulator</a>
-    <a href="#navigation">Navigation</a>
-    <a href="#benchmarks">Benchmarks</a>
-    <a href="#build">Build</a>
-    <a href="#limits">Limits</a>
-    <a href="blog/">Notes</a>
-    <a href="https://github.com/vrindasaluja18/luna">Source ↗</a>
-  </nav>
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">Luna · a way of seeing</p>
+    <h1>Data is a point space.<br>Clusters are the shapes in it.</h1>
+    <p class="lede">
+      Everything below is one idea, drawn twice. There is no product here and no
+      benchmark. There is a way of looking at a problem that made it tractable,
+      and two animations that show it.
+    </p>
+  </div>
 </header>
 
-<main id="top">
+<main>
 
-  <!-- ============================ HERO ============================ -->
-  <section class="hero">
+  <!-- ============================ FRAMING ============================ -->
+  <section>
     <div class="wrap">
-      <span class="eyebrow reveal">Research testbed · topological memory</span>
-      <h1 class="hero-mark reveal">L<span class="glow">U</span>NA</h1>
-      <p class="hero-lede reveal">
-        A CPU-only, no-CUDA <b>SLAM and navigation stack</b> that runs inside
-        8&nbsp;GB of RAM on 4 CPU cores — no ROS, no GPU. It exists to answer
-        one question: <b>how should a map hold its own topology, at a fidelity
-        proportional to how much that topology matters?</b>
+      <p class="sec-kicker">01 / Framing</p>
+      <h2>What Luna is for</h2>
+
+      <p>
+        Luna is a small navigation system. But the thing worth saying about it is
+        not that it drives. It is the question it was built to answer, which is
+        older and simpler than robotics:
       </p>
-      <div class="chips reveal">
-        <span class="chip"><b>8&nbsp;GB</b>&nbsp;hard&nbsp;budget</span>
-        <span class="chip">topology&nbsp;∝&nbsp;persistence</span>
-        <span class="chip">C++17 &middot; Eigen-only</span>
-        <span class="chip">no&nbsp;ROS &middot; no&nbsp;GPU</span>
-        <span class="chip"><b>~19&nbsp;MB</b>&nbsp;RSS</span>
-        <span class="chip">7&nbsp;CTest&nbsp;suites</span>
-      </div>
-      <div class="cta reveal">
-        <a class="btn primary" href="blog/">Read the note</a>
-        <a class="btn" href="https://github.com/vrindasaluja18/luna">View source</a>
-        <a class="btn" href="#benchmarks">The numbers</a>
-      </div>
+
+      <p class="pull">
+        If you cannot label your data, how do you find the structure in it?
+      </p>
+
+      <p>
+        The answer Luna commits to is to stop thinking of the data as a picture
+        or a grid, and start thinking of it as <strong>a cloud of points in a
+        space</strong>. A point per cell of the map. Nearby points are similar;
+        far points are different. That is the whole setup.
+      </p>
+
+      <p>
+        Once the data is a point space, structure stops being something you
+        impose and becomes something you <em>observe</em>. Where are the points
+        dense? Where are they sparse? The dense regions are the structure. They
+        are called <strong>clusters</strong>, and no one had to tell the
+        algorithm how many there are.
+      </p>
     </div>
   </section>
 
-  <!-- ============================ PURPOSE ============================ -->
-  <section id="purpose">
+  <!-- ============================ ANIMATION 1 ============================ -->
+  <section>
     <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">00 / PURPOSE</span>
-        <h2 class="sec-title">What this is for</h2>
-      </div>
+      <p class="sec-kicker">02 / The picture</p>
+      <h2>Points, density, clusters</h2>
 
-      <p class="reveal" style="max-width:64ch;color:var(--ink-2)">
-        <b>Hold a map's topology at a fidelity proportional to its persistence, inside a hard
-        8&nbsp;GB budget, and prove by measurement that every byte held and every computation
-        changed a decision.</b>
+      <p>
+        The animation runs in three beats. First the data arrives as a scatter of
+        points. Then it is read as a <em>density</em> — a landscape that is high
+        where points gather. Then the high ground is named: each dense region
+        becomes one cluster, found rather than given.
       </p>
 
-      <p class="reveal" style="max-width:64ch;color:var(--ink-2)">
-        SLAM is the vehicle, not the goal. It is used because it produces exactly the object the
-        goal is about: a map whose topology is unknown in advance, changes as it is observed, and
-        must be held under a fixed budget. That topology — rooms, doorways, loops — is
-        extracted with Morse theory from a smoothed clearance field, and <em>persistence</em> is
-        the number that says how real each feature is.
-      </p>
-
-      <div class="grid-2" style="margin-top:2rem">
-        <div class="note reveal">
-          <b>Two principles.</b> Nothing is true unless it is in maths — a claim that cannot be
-          measured is a feeling. And compute is precious — every line has to answer
-          <em>what decision does this change?</em> The first question that follows is
-          <em>which thing would be on DRAM?</em>
-        </div>
-        <div class="note cyan reveal">
-          <b>What is missing is stated, not hidden.</b> There is no reinforcement learning here: no
-          reward, no policy, no action space. The route follower is scripted, so the sensor stream
-          does not depend on any decision, and there is nothing to optimise a policy against.
-          <a href="blog/">The note</a> says why, and what the phased plan is.
-        </div>
-      </div>
-
-      <div class="note reveal" style="margin-top:1.6rem">
-        <b>Phase 0 is done, and it changed two published numbers.</b> The DRAM map was measured on
-        real runs instead of estimated. The world is 800×800 = 640,000 cells, not 1.44&nbsp;M; the
-        Morse flood holds eight per-cell buffers alive at once, not six; and the headline
-        &ldquo;19&nbsp;MB peak RSS&rdquo; is <span class="mono">sim</span>, which never runs
-        topology — <span class="mono">navigate</span> peaks at 32&nbsp;MB. One dead knob
-        (<span class="mono">min_persistence</span>, documented at length and read by nothing) was
-        deleted. The blur was cut from five full-grid buffers to two and verified bit-identical —
-        and it did <em>not</em> move the process peak, because the peak is the flood. That is
-        reported, not hidden.
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ FIGURE ============================ -->
-  <section aria-label="Reference scenario">
-    <div class="wrap">
-      <figure class="figure reveal">
-        <div class="figure-bar">
-          <span class="led a" aria-hidden="true"></span>
-          <span class="led b" aria-hidden="true"></span>
-          <span class="led c" aria-hidden="true"></span>
-          <span class="path">docs/figures/navigation_scenario.svg</span>
-        </div>
-        <img src="figures/navigation_scenario.svg" alt="Reference navigation scenario: estimated path tracked against ground truth, initial plan, Morse corridor graph with maxima and saddles labelled by passage width, map features and SLAM landmarks, and a dynamic obstacle." loading="lazy">
+      <figure class="anim">
+        <div class="canvas-box"><canvas id="c-points" aria-label="Animated diagram: a point cloud resolving into density and then into two clusters"></canvas></div>
         <figcaption>
-          <b>Reference navigation scenario.</b> Estimated path (blue) tracked against truth (green),
-          the initial plan (cyan dashed), the Morse corridor graph with maxima and saddles labelled by
-          passage width (purple), map features and SLAM landmarks (orange dots, red rings), and a dynamic
-          obstacle (red box). This is an illustration of the intended output, not a figure the current
-          build emits — <span class="mono">navigate</span> reports the numbers as text and writes
-          trajectories as TUM files.
+          <b>One cloud, three readings.</b> Points (top) are the data. Density is
+          what those points imply. Clusters are the dense regions, coloured once
+          the density says they are separate.
         </figcaption>
+        <div class="legend">
+          <span><i class="swatch" style="background:#2b6a6a"></i> cluster A</span>
+          <span><i class="swatch" style="background:#c25a3c"></i> cluster B</span>
+          <span><i class="swatch" style="background:#c9c4b6"></i> low density</span>
+        </div>
       </figure>
     </div>
   </section>
 
-  <!-- ============================ PIPELINE ============================ -->
-  <section id="pipeline">
+  <!-- ============================ ANALOGY ============================ -->
+  <section>
     <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">01 / PIPELINE</span>
-        <h2 class="sec-title">One process, simulator to steering</h2>
-      </div>
+      <p class="sec-kicker">03 / The analogy</p>
+      <h2>A map is a point cloud</h2>
 
-      <p class="reveal" style="max-width:64ch;color:var(--ink-2)">
-        The full pipeline is built and tested end to end. <span class="mono">luna navigate</span> runs
-        every stage in a single process and scores the drive against the <em>real</em> world — not the
-        map it built.
+      <p>
+        Now put a robot on that cloud. Each cell the robot has seen becomes a
+        point. Two points are similar when they are both open space; different
+        when a wall separates them. The clusters that fall out are exactly the
+        things a driver cares about:
       </p>
 
-      <div class="pipeline reveal" style="margin-top:2rem">
-        <div class="stage"><div class="idx">01</div><div class="name">SLAM</div><div class="desc">FAST corners, BRIEF descriptors, KLT flow, pose-graph optimisation.</div></div>
-        <div class="stage"><div class="idx">02</div><div class="name">Mapping</div><div class="desc">Probabilistic occupancy grid with free-space completion and speckle filtering.</div></div>
-        <div class="stage"><div class="idx">03</div><div class="name">Topology</div><div class="desc">Morse complex: critical points, bottleneck-contrast room decomposition, corridor graph.</div></div>
-        <div class="stage"><div class="idx">04</div><div class="name">Planning</div><div class="desc">Corridor-graph A* with grid-A* fallback, B-spline smoothing, verification.</div></div>
-        <div class="stage"><div class="idx">05</div><div class="name">Control</div><div class="desc">Bicycle-model MPC with chance constraints from SLAM covariance.</div></div>
-      </div>
-
-      <div class="grid-2" style="margin-top:2.2rem">
-        <div class="note cyan reveal">
-          <b>Topology is a guide, not an oracle.</b> The Morse graph is derived from a smoothed
-          clearance field, so it can assert an adjacency the raw grid does not support. The planner
-          treats the corridor route as a candidate and falls back to grid A* when it does not survive
-          collision verification. The topology makes the common case fast; the grid makes the uncommon
-          case correct.
-        </div>
-        <div class="note reveal">
-          <b>The controller steers on the estimate, not the truth.</b> The closed loop feeds the
-          controller a pose dead-reckoned from SLAM's own start; the plant runs at ground truth. That
-          separation is the run's localization error, and it reaches the vehicle the way it does on a
-          real robot — which is why tracking RMS is not zero.
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ SIMULATOR ============================ -->
-  <section id="simulator">
-    <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">02 / SIMULATOR</span>
-        <h2 class="sec-title">The load-bearing part</h2>
-      </div>
-
-      <p class="reveal" style="max-width:64ch;color:var(--ink-2)">
-        The simulator is the ground-truth generator that makes the rest testable without hardware.
-        A seeded RNG drives world generation, noise, and fault injection, so a run is reproducible
-        bit for bit — which is what lets the benchmark report be regenerated and compared.
+      <p>
+        a dense, roomy region is a <strong>room</strong>. The thin, sparse neck
+        between two rooms is a <strong>doorway</strong>. The whole map becomes a
+        small graph of rooms and doorways — and it was never labelled by hand.
+        The structure was read off the density.
       </p>
 
-      <div class="table-scroll reveal" style="margin-top:2rem">
-        <table>
-          <caption>World types — each targets a different failure mode</caption>
-          <thead>
-            <tr><th>World</th><th>What it stresses</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="num">rooms</td><td class="mute">Baseline indoor topology; well-textured</td></tr>
-            <tr><td class="num">corridor_loop</td><td class="mute">Narrow passages and turning; revisit for loop closure</td></tr>
-            <tr><td class="num">saddle_hall</td><td class="mute">Deliberate saddle points, to exercise the Morse layer</td></tr>
-            <tr><td class="num">maze</td><td class="mute">Narrow corridors; coverage-limited over short runs</td></tr>
-            <tr><td class="num">cluttered</td><td class="mute">Dynamic-obstacle handling</td></tr>
-            <tr><td class="num">textureless</td><td class="mute">No visual features; forces reliance on geometry</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="grid-2" style="margin-top:1.6rem">
-        <div class="note reveal">
-          <b>Scripted routes are planned, not assumed.</b> The reference route is built with the same
-          clearance field the vehicle is later checked against. Anchors are sampled only in drivable
-          space, corners are smoothed to a radius the car can turn, and the tracking margin is derived
-          from the vehicle footprint rather than hard-coded.
-        </div>
-        <div class="note reveal">
-          <b>Kinematic bicycle model.</b> Steering-rate limits and a minimum turn radius mean a route
-          the car cannot physically follow is <em>detectable</em> rather than silently tracked. Sensors —
-          camera with stereo pair, IMU, wheel odometry — each carry a configurable noise model, and
-          landmark projections are exact.
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ NAVIGATION ============================ -->
-  <section id="navigation">
-    <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">03 / NAVIGATION</span>
-        <h2 class="sec-title">Honest about what the map supports</h2>
-      </div>
-
-      <div class="stats reveal" style="margin-bottom:2.2rem">
-        <div class="stat"><div class="v">22<small>/48</small></div><div class="k">Runs plan &amp; drive, zero collisions</div></div>
-        <div class="stat"><div class="v">19<small>/48</small></div><div class="k">Refused — <span class="mono">blocked</span> / <span class="mono">no_corridor_route</span></div></div>
-        <div class="stat"><div class="v">0.17<small>–0.21&nbsp;m</small></div><div class="k">Tracking RMS on clean runs</div></div>
-        <div class="stat"><div class="v">7<small>/48</small></div><div class="k">Accept a plan the body then grazes</div></div>
-      </div>
-
-      <div class="grid-2">
-        <div class="reveal">
-          <p style="color:var(--ink-2)">
-            Across the 48-run sweep (6 worlds × 8 seeds), 22 runs plan, drive, and finish with zero
-            world collisions at 0.17–0.21&nbsp;m tracking RMS; 19 are refused as
-            <span class="mono">blocked</span> / <span class="mono">no_corridor_route</span>; and 7 accept
-            a plan the body then grazes a wall on.
-          </p>
-          <p style="color:var(--ink-2)">
-            The 7 are localization error the controller cannot see. A plan carries a clearance floor of
-            0.46&nbsp;m against a body half-diagonal of 0.353&nbsp;m — 0.107&nbsp;m of margin — while the
-            world-frame error between the SLAM estimate and truth runs 0.13–0.2&nbsp;m. The failure is
-            real and is reported: those runs exit non-zero and print a non-zero
-            <span class="mono">COLLISIONS</span> count.
-          </p>
-        </div>
-        <div class="note reveal">
-          <b>On <span class="mono">maze</span>, it reports <span class="mono">blocked</span> and drives nothing.</b>
-          That is the correct answer for what the map contains: a 60&nbsp;s pass through a 40&nbsp;m maze
-          observes roughly 7&nbsp;% of it, so the reconstructed free space is a trail one cell wide that
-          fragments into about twenty islands. The gap is coverage, not control — and deliberately not a
-          clearance-threshold problem. Lowering the threshold until a path appears would manufacture a
-          route through unobserved space.
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ BENCHMARKS ============================ -->
-  <section id="benchmarks">
-    <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">04 / BENCHMARKS</span>
-        <h2 class="sec-title">Every number regenerated, none hand-written</h2>
-      </div>
-
-      <p class="reveal" style="max-width:64ch;color:var(--ink-2)">
-        Generated by <span class="mono">make bench</span> from real runs of the built binary.
-        Seeds 1–8, 30&nbsp;s of simulated time per run.
-      </p>
-
-      <div class="table-scroll reveal" style="margin-top:1.8rem">
-        <table>
-          <caption>Simulator reference runs</caption>
-          <thead>
-            <tr><th>World</th><th>Runs</th><th>Collision-free</th><th>Collisions</th><th>Path (m)</th><th>Real-time factor</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="num">rooms</td><td>8</td><td class="ok">6</td><td class="warn">2</td><td>21.8</td><td>8.5×</td></tr>
-            <tr><td class="num">corridor_loop</td><td>8</td><td class="ok">7</td><td class="warn">1</td><td>24.1</td><td>7.3×</td></tr>
-            <tr><td class="num">saddle_hall</td><td>8</td><td class="ok">7</td><td class="warn">1</td><td>21.9</td><td>7.4×</td></tr>
-            <tr><td class="num">maze</td><td>8</td><td class="ok">7</td><td class="warn">1</td><td>18.9</td><td>10.6×</td></tr>
-            <tr><td class="num">cluttered</td><td>8</td><td class="ok">7</td><td class="warn">1</td><td>23.6</td><td>6.7×</td></tr>
-            <tr><td class="num">textureless</td><td>8</td><td class="ok">7</td><td class="warn">1</td><td>23.6</td><td>11.1×</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-scroll reveal" style="margin-top:1.4rem">
-        <table>
-          <caption>Frontend metrics</caption>
-          <thead>
-            <tr><th>World</th><th>Features / frame</th><th>Tracked %</th><th>Track err (px)</th><th>Stereo depths / frame</th><th>ms / frame</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="num">rooms</td><td>295.6</td><td>90.5</td><td>1.9097</td><td>83.5</td><td>52.35</td></tr>
-            <tr><td class="num">corridor_loop</td><td>345.9</td><td>93.9</td><td>1.7855</td><td>96.3</td><td>61.61</td></tr>
-            <tr><td class="num">saddle_hall</td><td>359.7</td><td>93.7</td><td>1.8382</td><td>110.2</td><td>62.76</td></tr>
-            <tr><td class="num">maze</td><td>192.7</td><td>89.7</td><td>1.9139</td><td>48.8</td><td>37.40</td></tr>
-            <tr><td class="num">cluttered</td><td>363.3</td><td>96.8</td><td>1.7275</td><td>108.2</td><td>66.15</td></tr>
-            <tr><td class="num">textureless</td><td class="bad">0.1</td><td>100.0</td><td>1.8915</td><td class="bad">0.0</td><td>10.41</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-scroll reveal" style="margin-top:1.4rem">
-        <table>
-          <caption>End-to-end navigation — scored against the real world</caption>
-          <thead>
-            <tr><th>World</th><th>Plan status</th><th>Plan (m)</th><th>Driven (m)</th><th>Tracking RMS (m)</th><th>Collisions</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="num">rooms</td><td class="warn">no_corridor_route</td><td>0.0</td><td>0.0</td><td class="mute">0.000</td><td class="ok">0</td></tr>
-            <tr><td class="num">corridor_loop</td><td class="warn">blocked</td><td>17.3</td><td>0.0</td><td class="mute">0.000</td><td class="ok">0</td></tr>
-            <tr><td class="num">saddle_hall</td><td class="ok">ok</td><td>14.4</td><td>14.1</td><td>0.208</td><td class="ok">0</td></tr>
-            <tr><td class="num">maze</td><td class="warn">blocked</td><td>3.3</td><td>0.0</td><td class="mute">0.000</td><td class="ok">0</td></tr>
-            <tr><td class="num">cluttered</td><td class="ok">ok</td><td>23.2</td><td>22.9</td><td>0.185</td><td class="ok">0</td></tr>
-            <tr><td class="num">textureless</td><td class="bad">invalid</td><td>0.0</td><td>0.0</td><td class="mute">0.000</td><td class="ok">0</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="grid-2" style="margin-top:1.6rem">
-        <div class="table-scroll reveal">
-          <table>
-            <caption>Measured accuracy — 177.9 m of travel</caption>
-            <thead><tr><th>Estimate</th><th>ATE (m)</th><th>ATE (% dist)</th></tr></thead>
-            <tbody>
-              <tr><td class="num">dead reckoning</td><td class="ok">0.165</td><td class="ok">0.094 %</td></tr>
-              <tr><td class="num">pose graph</td><td>0.224</td><td>0.127 %</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="table-scroll reveal">
-          <table>
-            <caption>Resource budget</caption>
-            <thead><tr><th>Metric</th><th>Value</th><th>Target</th></tr></thead>
-            <tbody>
-              <tr><td class="num">peak RSS — <span class="mono">sim</span></td><td class="ok">19 MB</td><td class="mute">&lt; 5 GB</td></tr>
-              <tr><td class="num">peak RSS — <span class="mono">navigate</span></td><td class="ok">32 MB</td><td class="mute">&lt; 5 GB</td></tr>
-              <tr><td class="num">topology flood</td><td>18.3 MB</td><td class="mute">2.9 B/cell</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="note reveal" style="margin-top:1.6rem">
-        <b>The pose graph is <em>worse</em> here, and that is worth stating plainly.</b> The frontend's
-        odometry on this well-textured world is already accurate to 0.094&nbsp;% of distance, so the
-        total drift the closures could remove is about 0.2&nbsp;m — the same order as the error of a
-        single loop measurement from the stereo-lite depth. The 8 closures are all correct (100&nbsp;%
-        precision, 0 false positives), but they are not more precise than the thing they are correcting,
-        so their noise moves the global metric the wrong way. Where the odometry actually drifts, the
-        closures pay off.
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ BUILD ============================ -->
-  <section id="build">
-    <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">05 / BUILD</span>
-        <h2 class="sec-title">Three commands</h2>
-      </div>
-
-      <div class="codeblock reveal">
-        <div class="cb-head"><span class="tag">sh</span><span>build &amp; verify</span><button class="copy" type="button">copy</button></div>
-        <pre><code><span class="c-com"># configure + build (Release)</span>
-<span class="c-cmd">make</span>
-<span class="c-com"># run the CTest suite (7 suites)</span>
-<span class="c-cmd">make test</span>
-<span class="c-com"># regenerate docs/benchmark_report.md from real runs</span>
-<span class="c-cmd">make bench</span></code></pre>
-      </div>
-
-      <div class="codeblock reveal" style="margin-top:1.4rem">
-        <div class="cb-head"><span class="tag">sh</span><span>the luna CLI</span><button class="copy" type="button">copy</button></div>
-        <pre><code><span class="c-com"># render a generated world as ASCII</span>
-<span class="c-cmd">./build/luna world --type maze --seed 7</span>
-
-<span class="c-com"># run SLAM + pose graph + loop closure, score against ground truth</span>
-<span class="c-cmd">./build/luna estimate --type rooms --seed 6 --duration 300</span>
-
-<span class="c-com"># run the full autonomy loop: SLAM -> map -> topology -> plan -> drive</span>
-<span class="c-cmd">./build/luna navigate --type rooms --seed 6</span>
-
-<span class="c-com"># inject sensor faults (dropouts, noise, stalls)</span>
-<span class="c-cmd">./build/luna sim --type corridor_loop --seed 3 --duration 30 --faults</span></code></pre>
-      </div>
-
-      <p class="reveal" style="margin-top:1.2rem;color:var(--ink-3);font-size:.9rem">
-        The CMake build also works directly:
-        <span class="mono">cmake -S . -B build &amp;&amp; cmake --build build -j4</span>.
-        Set <span class="mono">LUNA_TRACE=1</span> for a per-tick trace of estimate pose, progress,
-        lateral and heading error, tube margin, commanded speed, and stop reason.
+      <p>
+        That is the bridge from an abstract idea to a working one. The same
+        sentence that describes a point cloud also describes a building.
       </p>
     </div>
   </section>
 
-  <!-- ============================ LIMITS ============================ -->
-  <section id="limits">
+  <!-- ============================ ANIMATION 2 ============================ -->
+  <section>
     <div class="wrap">
-      <div class="sec-head reveal">
-        <span class="sec-num">06 / LIMITS</span>
-        <h2 class="sec-title">Reported, not hidden</h2>
-      </div>
+      <p class="sec-kicker">04 / The catch</p>
+      <h2>When two clusters are really one</h2>
 
-      <p class="reveal" style="max-width:64ch;color:var(--ink-2)">
-        The repository is honest about its own state. These are measured outcomes, not aspirational
-        caveats.
+      <p>
+        There is one hard question left, and it is the whole difficulty. Two
+        dense regions might be genuinely separate, or they might be one region
+        pinched in the middle. How deep must the pinch be before you call it a
+        doorway rather than a wobble?
       </p>
 
-      <ul class="limits reveal" style="margin-top:1.6rem">
-        <li>Navigation succeeds on most worlds and seeds, but not all. A fragmented or thinly-observed map can report <span class="mono">blocked</span> or <span class="mono">no_corridor_route</span> — a real coverage outcome, not a planner defect.</li>
-        <li>Collision-free rate is <b>80&nbsp;%</b> over the reference sweep, not 100&nbsp;%. Remaining cases are hairpin reversals at tour anchors, where a car cannot complete the turn.</li>
-        <li>The 0.3&nbsp;% ATE target is <b>not met</b> on the reference run, and the reason is upstream of the graph: the measurement chain is wheel odometry fused with the gyro; camera features feed only the loop-closure index. Closing the gap means a visual-inertial frontend.</li>
-        <li><span class="mono">textureless</span> worlds produce one Morse node — a featureless image has no corners — so there is no topology to plan on. Expected.</li>
-        <li>Dataset drivers (EuRoC, KITTI, TUM-VI, MALAGA) are not wired up; <span class="mono">data/</span> holds placeholders and only the simulator runs end to end.</li>
-        <li>Loop closure fires only where the simulated route genuinely returns to a previously visited pose, so &ldquo;0 closures&rdquo; is not by itself evidence of a matcher problem.</li>
-      </ul>
+      <p>
+        The animation answers it the only honest way: lower a threshold and
+        watch. As the level drops, the two clusters hold together until it
+        reaches the height of the valley between them — then they merge. The
+        depth of that valley is how <em>real</em> the separation was. It is
+        called <strong>persistence</strong>.
+      </p>
 
-      <div class="note reveal" style="margin-top:1.8rem">
-        <b>What this means for the 0.3&nbsp;% ATE target.</b> The backend is doing its job — given drift
-        it reduces it, and given a good trajectory it leaves it alone. The limit is the precision of the
-        measurement, not the optimiser.
-      </div>
+      <figure class="anim">
+        <div class="canvas-box"><canvas id="c-merge" aria-label="Animated diagram: two density peaks merging as a threshold descends past the valley between them"></canvas></div>
+        <figcaption>
+          <b>The merge is the measurement.</b> The dashed level sweeps down. While
+          it sits above the valley the two peaks are two clusters; when it passes
+          the valley they become one. The valley depth is the persistence — a
+          number, not a guess.
+        </figcaption>
+        <div class="legend">
+          <span><i class="swatch" style="background:#2b6a6a"></i> level above valley → 2 clusters</span>
+          <span><i class="swatch" style="background:#c25a3c"></i> level below valley → 1 cluster</span>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================ CLOSE ============================ -->
+  <section>
+    <div class="wrap">
+      <p class="sec-kicker">05 / Why it matters</p>
+      <h2>One idea, three jobs</h2>
+
+      <p>
+        The reason to fix on a single idea is that a single idea can be reused.
+        Persistence — the depth of that valley — turns out to answer three
+        questions that are normally three separate pieces of machinery: which
+        regions are separate, which regions are worth keeping in memory, and
+        which regions are worth going to look at next.
+      </p>
+
+      <p>
+        Finding clusters, deciding what to forget, and choosing where to explore
+        are usually three different problems with three different tunings. Here
+        they are one number, read off the same shape. That is the whole claim,
+        and it is why the page is one page.
+      </p>
     </div>
   </section>
 
@@ -442,67 +182,13 @@
 
 <footer>
   <div class="wrap">
-    <div class="foot-row">
-      <div>
-        <div class="brand" style="margin-bottom:.9rem"><span class="dot" aria-hidden="true"></span>LUNA</div>
-        <p style="max-width:38ch;color:var(--ink-3);font-size:.9rem;margin:0">
-          A CPU-only testbed for topological memory management: hold a map's topology at a
-          fidelity proportional to its persistence, under a hard 8&nbsp;GB budget.
-        </p>
-      </div>
-      <div class="foot-meta">
-        <div><b>Repo</b> · <a href="https://github.com/vrindasaluja18/luna">vrindasaluja18/luna</a></div>
-        <div><b>Language</b> · C++17 · Eigen-only</div>
-        <div><b>Branch</b> · main</div>
-        <div><b>Source</b> · README.md, docs/benchmark_report.md, docs/blog/</div>
-      </div>
-    </div>
-    <p class="foot-meta" style="margin-top:2.4rem;border-top:1px solid var(--line-soft);padding-top:1.2rem">
-      Page generated by an AI agent (OpenHands) on behalf of the repository owner, from the
-      repository's own README and generated benchmark report. Every figure is taken from
-      <span class="mono">make bench</span>; none is invented.
+    <p>
+      Luna · a CPU-only navigation stack, used here as a testbed for that one
+      idea. <a href="https://github.com/vrindasaluja18/luna">Source</a>.
     </p>
   </div>
 </footer>
 
-<script>
-(function () {
-  var reveals = document.querySelectorAll('.reveal');
-  if (!('IntersectionObserver' in window)) {
-    reveals.forEach(function (el) { el.classList.add('in'); });
-    return;
-  }
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) {
-      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-    });
-  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-
-  reveals.forEach(function (el, i) {
-    el.style.transitionDelay = Math.min(i * 60, 320) + 'ms';
-    io.observe(el);
-  });
-
-  document.querySelectorAll('.copy').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var code = btn.closest('.codeblock').querySelector('code');
-      var text = code.innerText;
-      var done = function () {
-        btn.textContent = 'copied';
-        btn.classList.add('done');
-        setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1600);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, done);
-      } else {
-        var ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); } catch (e) {}
-        document.body.removeChild(ta); done();
-      }
-    });
-  });
-})();
-</script>
+<script src="flow.js"></script>
 </body>
 </html>
