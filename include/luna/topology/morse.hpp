@@ -86,10 +86,6 @@ struct MorseOptions {
   /// that persistence alone will not remove. Smoothing first is what makes the
   /// extraction stable.
   Scalar smoothing_sigma = 1.2;
-  /// Features with persistence below this (metres) are discarded as noise.
-  /// The right value scales with the world, not with the resolution: it is the
-  /// smallest room-to-doorway height difference that should count as a room.
-  Scalar min_persistence = 0.20;
   /// Cells with clearance below this are treated as obstacles for the
   /// analysis. This is what keeps the corridor graph inside drivable space
   /// instead of threading the 5 cm skin along every wall.

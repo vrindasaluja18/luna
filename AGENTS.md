@@ -219,11 +219,12 @@ every test that only checks the theorem.
    exactly why the bug survived. The replacement checks the defining identity
    and the Log central difference; it fails against the old code.
 
-3. **`MorseOptions::min_persistence` is dead.** The field is documented in
-   detail and never read anywhere (`max_persistence` is only a *statistic*). The
-   room decomposition is bottleneck-contrast based and persistence is used only
-   to rank. The comment block explaining the threshold is therefore misleading:
-   it describes a knob that has no effect.
+3. **`MorseOptions::min_persistence` was dead, and has been deleted.** The
+   field was documented in detail and read nowhere (`max_persistence` is only a
+   *statistic*). The room decomposition is bottleneck-contrast based and
+   persistence is used only to rank. The comment block explaining the threshold
+   was therefore a false promise: it described a knob that had no effect.
+   Removed in the Phase-0 pass; see the DRAM inventory above.
 
 4. **The loop-closure acceptance gate tests consistency with the estimate, and
    the accepted closures are genuine.** `EstimatorOptions::loop_gate_*` compares
@@ -299,12 +300,76 @@ quantity it stores, not from the type that happened to be convenient.
 | `backend/loop_close` | 256-bit descriptor | `std::array<std::uint64_t,4>` | Hamming distance via `popcountll`; no per-bit storage needed |
 | `core/alloc` | arena bytes | `std::byte` | raw |
 
-Concrete numbers at the CI resolution (0.05 m, ~1200x1200 cells = 1.44 M cells):
-occupancy 1.4 MB, one double field 11.5 MB, one int32 index field 5.8 MB. The
-Morse flood alone holds six per-cell buffers (`hf`, `order`, `processed`,
-`comp_max`, `is_max`, `cell_peak`) plus the union-find's two, which is ~43 MB at
-that resolution -- the single largest transient in the pipeline, and the reason
-`hf` and friends are allocated once per analysis rather than per query.
+Concrete numbers, measured (not estimated) at the CI resolution -- 0.05 m on a
+40 m world, so 800x800 = 640,000 cells. An earlier revision of this file said
+"~1200x1200 cells = 1.44 M cells" and "~43 MB"; both were wrong, and the error
+came from assuming the grid instead of reading `WorldSpec::size_m / res`. Every
+number below comes from a run, via `/proc/self/status` `VmHWM` and
+`/proc/self/statm`.
+
+### DRAM inventory: every buffer >= 1 MB, with its consumer
+
+`topology::MorseComplex::extract` is the peak of the whole pipeline. Its
+transients, at 640k cells:
+
+| buffer | type | bytes | consumer |
+|---|---|---|---|
+| `hf` (height field) | `Scalar` | 4.9 MB | flood; retained as `height_` for `heightAt` |
+| `order` | `Index` | 2.4 MB | flood: cells in descending height |
+| `comp_max` | `Index` | 2.4 MB | flood: candidate maximum per component |
+| `cell_peak` | `Index` | 2.4 MB | room decomposition: basin each cell drained into |
+| `processed` | `uint8` | 0.6 MB | flood: visited flag |
+| `is_max` | `uint8` | 0.6 MB | room decomposition: plateau maxima |
+| `DisjointSet::parent_` | `Index` | 2.4 MB | flood union-find |
+| `DisjointSet::size_` | `Index` | 2.4 MB | flood union-find |
+| **flood subtotal (8 alive at once)** | | **18.3 MB** | 2.9 bytes/cell |
+| `max_persist` | `Scalar` | 4.9 MB | persistence bookkeeping |
+| `parent_max` | `Index` | 2.4 MB | persistence: merge parent chain |
+| `peak_comp` | `Index` | 2.4 MB | room decomposition: peak -> room |
+| **persistence subtotal (3 alive, plus retained `hf`)** | | **14.7 MB** | 2.3 bytes/cell |
+
+Clearance and smoothing, before the flood: `clearance` 4.9 MB, `smoothed`
+4.9 MB, and the Gaussian blur's own scratch. The blur was rewritten to hold
+**two** full-grid `Scalar` buffers instead of five (it derives the validity mask
+from `grid.cells` rather than materialising it, and recomputes the kernel weight
+sum per pass instead of storing it). The rewrite is verified **bit-for-bit
+identical** to the original on three world types x three seeds. It does *not*
+lower the process peak -- see below.
+
+Measured process peaks on the reference world:
+
+| command | peak RSS | note |
+|---|---|---|
+| `sim --type rooms --seed 1 --duration 30` | 19 MB | the figure published in the benchmark report; never runs topology |
+| `estimate --type rooms --seed 6 --duration 60` | 19 MB | no topology either |
+| `navigate --type rooms --seed 6` | 32 MB | runs topology on the local map |
+| `world --type rooms --seed 1` | 18 MB | world generation only |
+
+So the headline "19 MB peak RSS" is honest but is measured on the one command
+that does not exercise the heaviest stage. `navigate` is the number that
+includes the topology extraction.
+
+An isolated `clearance -> blur -> analyseField` on the full 800x800 world peaks
+at **52.7 MB**, and freeing `clearance` before the flood only takes it to
+47.8 MB -- so the peak is genuinely live flood memory, not allocator
+fragmentation from the blur. The blur rewrite is a real reduction in *live* set
+and in *allocation count*, but it does not move the process high-water mark,
+because the flood is larger and the allocator was already recycling the blur's
+freed pages. Do not claim the blur rewrite lowered RSS; it did not.
+
+What this means for the goal: the flood costs **2.9 bytes per cell** and the
+persistence phase **2.3 bytes per cell**, so the topology memory scales with map
+*area*, independent of content. Any future reduction should attack the eight
+simultaneously-live flood buffers, not the blur.
+
+`min_persistence` was **deleted** in this pass. It was declared in
+`MorseOptions`, documented as "features with persistence below this are
+discarded as noise", and read by no code anywhere -- a false promise in a public
+options struct. Room filtering is done by `min_bottleneck_contrast` (a density
+contrast test), which is the real rule; the persistence value is recorded for
+reporting only. If you want a persistence threshold back, wire it into the room
+decomposition *and* justify it against the contrast test, which already handles
+the failure modes a persistence threshold fails on.
 
 Two deliberate non-obvious choices:
 

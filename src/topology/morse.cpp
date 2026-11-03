@@ -158,52 +158,52 @@ void gaussianBlurField(const sim::GridMap& grid, const std::vector<Scalar>& in, 
   // and are excluded from both numerator and denominator. Including them would
   // pull the height down near every wall, which flattens the very ridges the
   // saddle detection depends on.
-  std::vector<Scalar> valid(in.size(), 0.0);
-  for (Size i = 0; i < in.size(); ++i)
-    valid[i] = (static_cast<sim::Cell>(grid.cells[i]) == sim::Cell::kOccupied) ? 0.0 : 1.0;
+  //
+  // The mask is derived from the grid rather than stored: it is one byte of
+  // `grid.cells`, so materialising it as a Scalar per cell costs 5 MB on an
+  // 800x800 world to hold information the caller already has.
+  const auto validAt = [&](Size i) {
+    return static_cast<sim::Cell>(grid.cells[i]) == sim::Cell::kOccupied ? 0.0 : 1.0;
+  };
 
-  std::vector<Scalar> tmp(in.size(), 0.0), num(in.size(), 0.0);
-  std::vector<Scalar> wsum(in.size(), 0.0);
-  // Horizontal pass.
+  // Separable Gaussian, one scratch field instead of four. The horizontal pass
+  // writes the normalised result into `acc`; the vertical pass reads `acc` and
+  // writes the final field, so neither pass needs the previous implementation's
+  // separate `num`/`wsum`/`tmp` arrays. The weight sums are recomputed per pass
+  // rather than stored -- they depend only on the kernel and the grid mask.
+  std::vector<Scalar> acc(in.size(), 0.0);
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
-      Scalar acc = 0, wacc = 0;
+      Scalar num = 0, den = 0;
       for (int k = -radius; k <= radius; ++k) {
         const int xx = x + k;
         if (xx < 0 || xx >= w) continue;
         const Size idx = static_cast<Size>(y) * w + xx;
         const Scalar kv = kernel[static_cast<Size>(k + radius)];
-        acc += kv * in[idx] * valid[idx];
-        wacc += kv * valid[idx];
+        const Scalar v = validAt(idx);
+        num += kv * in[idx] * v;
+        den += kv * v;
       }
       const Size idx = static_cast<Size>(y) * w + x;
-      num[idx] = acc;
-      wsum[idx] = wacc;
+      acc[idx] = den > 1e-12 ? num / den : in[idx];
     }
   }
-  for (Size i = 0; i < in.size(); ++i)
-    tmp[i] = wsum[i] > 1e-12 ? num[i] / wsum[i] : in[i];
-  // Vertical pass.
-  std::fill(num.begin(), num.end(), 0.0);
-  std::fill(wsum.begin(), wsum.end(), 0.0);
   for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
-      Scalar acc = 0, wacc = 0;
+      Scalar num = 0, den = 0;
       for (int k = -radius; k <= radius; ++k) {
         const int yy = y + k;
         if (yy < 0 || yy >= h) continue;
         const Size idx = static_cast<Size>(yy) * w + x;
         const Scalar kv = kernel[static_cast<Size>(k + radius)];
-        acc += kv * tmp[idx] * valid[idx];
-        wacc += kv * valid[idx];
+        const Scalar v = validAt(idx);
+        num += kv * acc[idx] * v;
+        den += kv * v;
       }
       const Size idx = static_cast<Size>(y) * w + x;
-      num[idx] = acc;
-      wsum[idx] = wacc;
+      (*out)[idx] = den > 1e-12 ? num / den : in[idx];
     }
   }
-  for (Size i = 0; i < in.size(); ++i)
-    (*out)[i] = wsum[i] > 1e-12 ? num[i] / wsum[i] : in[i];
 }
 
 // ---------------------------------------------------------------------------

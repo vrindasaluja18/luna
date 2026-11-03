@@ -55,7 +55,7 @@ with data the repository already produces, and (c) honest about what is hard.
 | id | sub-goal | how it is measured | state |
 |---|---|---|---|
 | **G1** | run inside 8 GB / 4 cores / no GPU | peak RSS on the longest benchmark run | **met** |
-| **G2** | maximise structure retained per byte held | `graph_components` and corridor count vs map bytes held (today only `map_bytes_resident` is reported; a peak field is a Phase-0 addition) | **not measured** |
+| **G2** | maximise structure retained per byte held | `graph_components` and corridor count vs map bytes held. Phase 0 measured the byte side externally (`VmHWM` per command) and found the published "19 MB peak RSS" is `sim`, which never runs topology; `navigate` peaks at 32 MB. A `map_bytes_peak` field is still not implemented. | **byte side measured, ratio not yet reported** |
 | **G3** | one currency for clustering, eviction and reward | persistence is the currency in all three paths | **partial** -- clustering yes, eviction no, reward no |
 | **G4** | let the map's own topology choose where to look next | exploration reward vs coverage, on recorded runs | **not present** |
 

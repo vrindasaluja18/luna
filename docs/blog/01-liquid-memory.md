@@ -53,23 +53,33 @@ system the answer is not the estimator and not the planner -- both are O(1) or
 O(keyframes) in their state. It is the **map fields**, because they are the
 only thing that scales with the *area* the robot has seen.
 
-At Luna's CI resolution (0.05 m, about 1200x1200 cells = 1.44M cells):
+At Luna's CI resolution (0.05 m on a 40 m world, so 800x800 = 640,000 cells),
+measured on a real run rather than estimated:
 
 | quantity | element type | bytes/cell | total |
 |---|---|---|---|
-| occupancy evidence | `float` (`LogOdds`) | 4 | 5.8 MB |
-| clearance field | `double` (`Scalar`) | 8 | 11.5 MB |
-| **one** Morse flood buffer | `double` / `Index` | 8 / 4 | 11.5 / 5.8 MB |
-| Morse flood, **six alive at once** | mixed | -- | **~43 MB** |
+| occupancy evidence | `float` (`LogOdds`) | 4 | 2.4 MB |
+| clearance field | `double` (`Scalar`) | 8 | 4.9 MB |
+| smoothed field | `double` (`Scalar`) | 8 | 4.9 MB |
+| Morse flood, **eight buffers alive at once** | mixed | 2.9 | **18.3 MB** |
+| persistence phase, **three buffers alive** | mixed | 2.3 | **14.7 MB** |
 
-The Morse flood is the single largest transient in the pipeline. Six per-cell
-buffers -- `hf`, `order`, `processed`, `comp_max`, `is_max`, `cell_peak` -- are
-alive at the same time, plus the union-find's two. That is the answer to the
-primitive question, and it is not where I would have guessed. **The memory
-problem is the topology extraction, not the SLAM.**
+The Morse flood is the single largest transient in the pipeline. Eight per-cell
+buffers -- `hf`, `order`, `processed`, `comp_max`, `is_max`, `cell_peak`, and the
+union-find's `parent_` and `size_` -- are alive at the same time. That is the
+answer to the primitive question, and it is not where I would have guessed.
+**The memory problem is the topology extraction, not the SLAM.**
+
+The rate is what generalises, not the total: the flood costs **2.9 bytes per
+cell** and the persistence phase **2.3 bytes per cell**, so the memory scales
+with the *area of the map*, not with its content. On the local map that
+`navigate` actually builds (a fraction of the world, only what the robot has
+observed), the topology stage still sets the process peak -- but the published
+"19 MB peak RSS" is measured on `sim`, which never runs topology at all. That
+is a real gap in the benchmark, and it is now stated rather than implied.
 
 And the ratio that matters is not bytes, it is **bytes held per decision
-served**: 43 MB of flood produces one corridor graph, which the planner queries
+served**: 18 MB of flood produces one corridor graph, which the planner queries
 once per plan. Driving that ratio down *is* the goal of the project. Hold that
 thought.
 
@@ -85,16 +95,19 @@ with a union-find, and each merge of two components at a saddle kills the
 younger maximum. The height difference at that merge is the maximum's
 **persistence**.
 
-Here is the thing. I went looking for the persistence threshold and found it is
-dead:
+Here is the thing. I went looking for the persistence threshold and found it was
+dead -- one declaration, documented at length, and not one read in the entire
+repository:
 
 ```
-include/luna/topology/morse.hpp:92:  Scalar min_persistence = 0.20;
+include/luna/topology/morse.hpp
+  /// Features with persistence below this (metres) are discarded as noise.
+  Scalar min_persistence = 0.20;   // <- never read anywhere
 ```
 
-That is the only occurrence in the entire repository. It is declared,
-documented at length, and **never read**. The code that actually decides what
-counts as a room uses a different rule:
+It has since been deleted, because a knob that does nothing is worse than no
+knob: it invites you to tune it and then silently ignores you. The code that
+actually decides what counts as a room uses a different rule:
 
 ```
 include/luna/topology/morse.hpp
@@ -382,10 +395,16 @@ most testable claim comes first, and the expensive, least-certain one comes
 last -- and so that any phase can be the last one without leaving a broken
 system.
 
-**Phase 0 -- inventory and delete dead compute.** Name the consumer of every
-buffer above 1 MB. Delete `min_persistence` or wire it up. Publish the DRAM
-table above in `AGENTS.md`. *No new maths.* This phase is what proves the
-project is not slop: it can say what it computes and why.
+**Phase 0 -- inventory and delete dead compute.** *Done, and reported honestly.*
+Every buffer above 1 MB was measured on a real run and its consumer named; the
+table above is the result. `min_persistence` was **deleted** -- it was declared,
+documented as "features below this are discarded as noise", and never read, so
+it was a false promise in the public options struct. The Gaussian blur was
+rewritten from five full-grid buffers to two, verified **bit-for-bit identical**
+on three world types and three seeds. And one claim did not survive contact with
+the measurement: the blur rewrite did **not** lower the process peak, because
+the peak is the flood, and the allocator was already recycling the blur's freed
+pages. That is reported, not hidden. The full inventory is in `AGENTS.md`.
 
 **Phase 1 -- the reward as a pure function.** `luna::learn::scoreRun(log) ->
 {PE, HE, BD, task}`. A pure function of a recorded run. No learning, no policy,

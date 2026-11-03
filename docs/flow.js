@@ -1,7 +1,7 @@
 /* LUNA — data-flow animation.
    Dependency-free canvas. Data particles travel left to right through the
    pipeline. Their speed is scaled by the *resident bytes* of the stage they are
-   crossing, so they bunch up at the Morse topology stage — the 43 MB transient
+   crossing, so they bunch up at the Morse topology stage — the 18.3 MB transient
    is the bottleneck, and the animation is meant to make that legible rather
    than decorative. Clicking a stage row below emphasises its node. */
 
@@ -14,13 +14,13 @@
 
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // weight drives node size and particle speed. topology = 43 MB is the peak.
+  // weight drives node size and particle speed. topology = 18.3 MB is the peak.
   var STAGES = [
     { k: "sim",       nm: "sim",       bytes: "O(1)",       weight: 4   },
     { k: "frontend",  nm: "frontend",  bytes: "O(feat)",    weight: 8   },
     { k: "backend",   nm: "backend",   bytes: "O(kf)",      weight: 14  },
-    { k: "mapping",   nm: "mapping",   bytes: "17.3 MB",    weight: 26  },
-    { k: "topology",  nm: "topology",  bytes: "~43 MB",     weight: 100 },
+    { k: "mapping",   nm: "mapping",   bytes: "7.3 MB",     weight: 40  },
+    { k: "topology",  nm: "topology",  bytes: "18.3 MB",    weight: 100 },
     { k: "planning",  nm: "planning",  bytes: "O(nodes)",   weight: 10  },
     { k: "control",   nm: "control",   bytes: "O(1)",       weight: 6   }
   ];
@@ -80,7 +80,7 @@
     return { x: last.x, y: last.y, i: nodes.length - 1 };
   }
 
-  // speed multiplier: heavy stages slow the flow. normalised so 43 MB -> 0.22
+  // speed multiplier: heavy stages slow the flow. normalised so 18.3 MB -> 0.22
   function speedAt(s) {
     var p = pointAt(s);
     var near = 0;
@@ -198,7 +198,7 @@
     ctx.fillStyle = C.paper;
     ctx.fillText("resident bytes per stage", 14, H - 16);
     ctx.fillStyle = C.hot;
-    ctx.fillText("● topology ≈ 43 MB — the largest transient in the pipeline", 14, H - 2);
+    ctx.fillText("● topology ≈ 18.3 MB — the largest transient in the pipeline", 14, H - 2);
   }
 
   var last = 0;

@@ -208,6 +208,7 @@ blockquote {
   color: var(--dim); border: 1px solid var(--rule); padding: .12rem .45rem; white-space: nowrap;
 }
 .tag.now { color: var(--ink); background: var(--amber); border-color: var(--amber); }
+.tag.done { color: var(--ink); background: var(--trace); border-color: var(--trace); }
 
 /* ---------- credit / footer ---------- */
 
