@@ -113,6 +113,40 @@ void testFastDetectsCorners() {
   LUNA_CHECK(capped.size() <= 7);
 }
 
+/// The high-speed test must not reject a pixel whose only qualifying arc
+/// touches two of the four cardinal points. With n = 9 the widest arc that
+/// touches a single cardinal point spans 7 pixels, so a real corner can sit on
+/// an arc that misses two of them -- for example the arc spanning circle
+/// indices 2..12, which touches only {5, 9}. A threshold of 3 (the FAST-12
+/// figure) silently drops such pixels before the full test runs; the correct
+/// threshold for n = 9 is 2.
+void testFastHighSpeedTestKeepsTwoCardinalArc() {
+  // The Bresenham circle of radius 3 in the order the detector uses.
+  static const int circ[16][2] = {
+      {0, -3}, {1, -3}, {2, -2}, {3, -1}, {3, 0},   {3, 1},   {2, 2},   {1, 3},
+      {0, 3},  {-1, 3}, {-2, 2}, {-3, 1}, {-3, 0},  {-3, -1}, {-2, -2}, {-1, -3}};
+  Image im;
+  im.resize(32, 32);
+  std::fill(im.px.begin(), im.px.end(), static_cast<std::uint8_t>(20));
+  const int cx = 16, cy = 16;
+  im.at(cx, cy) = static_cast<std::uint8_t>(128);
+  // Bright on indices 2..12, dark on 13..15 and 0..1. The cardinal points
+  // {1, 5, 9, 13} therefore read dark, bright, bright, dark.
+  for (int k = 0; k < 16; ++k) {
+    const bool bright = (k >= 2 && k <= 12);
+    im.at(cx + circ[k][0], cy + circ[k][1]) = static_cast<std::uint8_t>(bright ? 230 : 20);
+  }
+  FastOptions opt;
+  opt.threshold = 25;
+  opt.nonmax = false;
+  std::vector<Corner> corners;
+  detectFast(im, opt, &corners);
+  bool found = false;
+  for (const Corner& c : corners)
+    if (c.x == cx && c.y == cy) found = true;
+  LUNA_CHECK(found);
+}
+
 /// BRIEF must be a pure function of the pixel patch: identical patches give
 /// identical descriptors, different patches give different ones, and the
 /// pattern is reproducible from its seed (loop closure depends on both).
@@ -131,8 +165,11 @@ void testBriefDescriptor() {
   Descriptor edge;
   LUNA_CHECK(!p1.compute(a, 1, 1, &edge));
   LUNA_CHECK(!p1.compute(a, 95, 95, &edge));
-  // Descriptor bytes are the packed bit count, not a per-keyframe cost.
-  LUNA_CHECK(p1.bytes() > 0);
+  // Sampling-pattern footprint: 256 pairs, four int8 offsets each. A
+  // sizeof(int16_t) stride here under-reports the pattern by half, which is the
+  // kind of width slip that stays invisible until the figure is used to size a
+  // buffer.
+  LUNA_CHECK(p1.bytes() == 256u * 4u);
 }
 
 void testDetectAndDescribe() {
@@ -326,6 +363,7 @@ void testStereoRejectsFlatMatch() {
 
 void run() {
   testFastDetectsCorners();
+  testFastHighSpeedTestKeepsTwoCardinalArc();
   testBriefDescriptor();
   testDetectAndDescribe();
   testKltSingleLevelAccuracy();

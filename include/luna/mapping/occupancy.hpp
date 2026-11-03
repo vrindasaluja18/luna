@@ -171,13 +171,21 @@ class OccupancyMap {
   Tile* findTile(int tx, int ty) const;
   void evictIfNeeded();
   void evictOne();
-  bool loadPaged(const Key& k, Tile* t) const;
-  void writePaged(const Key& k, const Tile& t) const;
+  bool loadPaged(const Key& k, Tile* t);
+  void writePaged(const Key& k, const Tile& t);
   void touch(Tile* t);
   void bumpPeak();
 
   OccupancyOptions opt_;
   std::unordered_map<Key, Tile, KeyHash> tiles_;
+  /// Backing-file slot assigned to each paged tile. The file offset is
+  /// `slot * tileBytes`, so distinct tiles always land on distinct records.
+  /// Hashing the key to an offset directly cannot do that: any finite hash has
+  /// collisions, and two tiles that collide would share a record and silently
+  /// overwrite each other's evidence. This map is the authority on which tile
+  /// owns which record, so a collision can never merge two tiles.
+  std::unordered_map<Key, std::uint64_t, KeyHash> page_slots_;
+  std::uint64_t next_slot_ = 0;
   std::uint64_t clock_ = 0;
   OccupancyStats stats_;
   Vec2 min_seen_ = Vec2::Constant(std::numeric_limits<Scalar>::max());

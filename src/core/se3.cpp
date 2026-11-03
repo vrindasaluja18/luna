@@ -127,59 +127,71 @@ Mat6 se3Adjoint(const Mat4& T) {
   return Ad;
 }
 
+namespace {
+
+/// The little adjoint ad_xi of SE(3), in the module's tangent ordering
+/// [rho; phi]:
+///
+///     ad = [ [phi^,  rho^] ]
+///          [ [  0,   phi^] ]
+///
+/// It is the matrix of the map y -> xi x y on the Lie algebra. Everything the
+/// right Jacobian is built from is a polynomial in this single matrix.
+Mat6 se3LittleAdjoint(const Vec6& xi) {
+  const Mat3 P = skew(xi.tail<3>());
+  const Mat3 R = skew(xi.head<3>());
+  Mat6 ad = Mat6::Zero();
+  ad.template block<3, 3>(0, 0) = P;
+  ad.template block<3, 3>(0, 3) = R;
+  ad.template block<3, 3>(3, 3) = P;
+  return ad;
+}
+
+}  // namespace
+
 Mat6 se3RightJacobian(const Vec6& xi) {
-  const Vec3 phi = xi.tail<3>();
-  const Vec3 rho = xi.head<3>();
-  const Scalar t = phi.norm();
-  const Mat3 K = skew(phi);
-  Scalar A, B, C;
-  rodriguesCoeffs(t, &A, &B, &C);
-  // Q = 0.5 [rho]_x + C/2 ([phi]_x[rho]_x + [rho]_x[phi]_x + [phi]_x[rho]_x[phi]_x)
-  //     - (B - 3C)/6 ([phi]_x^2[rho]_x + [rho]_x[phi]_x^2 - 3[phi]_x[rho]_x[phi]_x)
-  //     - (1/2 - A/4 - 3C/2) ... higher-order translation terms are dropped
-  //     below 1e-6 rad, where the block reduces to 0.5 [rho]_x.
+  // The right Jacobian is the matrix series
+  //
+  //     J_r(xi) = sum_{n>=0} (-1)^n / (n+1)! ad_xi^n
+  //
+  // which is the SE(3) generalisation of J_r = I - B[phi]_x + C[phi]_x^2 and
+  // reduces to it exactly when rho = 0 (then ad is block diagonal and the
+  // translation block decouples). The series is the definition the rest of the
+  // module relies on: it is what makes
+  //
+  //     Exp(xi + d) = Exp(xi) Exp(J_r(xi) d) + O(|d|^2)
+  //
+  // hold. The previous closed form here computed the (0,3) block from a set of
+  // coefficients that did not reproduce the series -- the block was wrong by
+  // O(1) at |phi| ~ 0.5 -- so the function failed its own defining identity
+  // while every test that only touched SO(3) still passed. Building it from the
+  // series is both exact and checkable against that identity.
+  //
+  // The series is summed to a fixed 20 terms. Because the rotational part
+  // satisfies ad^3 = -|phi|^2 ad, each term is bounded by |phi|^n / (n+1)!, so
+  // the truncation is far below double precision for every |phi| <= pi and
+  // every finite rho. The bound is fixed rather than adaptive so the result is
+  // bit-reproducible, which the seeded replay depends on.
+  const Mat6 ad = se3LittleAdjoint(xi);
   Mat6 J = Mat6::Identity();
-  J.template block<3, 3>(3, 3) = so3RightJacobian(phi);
-  Mat3 Q = Mat3::Zero();
-  if (t > 1e-8) {
-    const Mat3 K2 = K * K;
-    const Mat3 rK = skew(rho);
-    const Mat3 K3 = K2 * K;
-    const Mat3 K4 = K2 * K2;
-    const Scalar t2 = t * t;
-    const Scalar t3 = t2 * t;
-    const Scalar t4 = t2 * t2;
-    const Scalar t5 = t4 * t;
-    const Scalar c1 = (t3 - 6.0 * t + 6.0 * std::sin(t)) / (6.0 * t5);
-    const Scalar c2 = (t2 - 2.0 + 2.0 * std::cos(t)) / (2.0 * t4);
-    const Scalar c3 = (t3 - 6.0 * t + 6.0 * std::sin(t)) / (6.0 * t5);
-    const Scalar c4 = (2.0 * t2 - 3.0 - 3.0 * t * std::sin(t) + 6.0 * std::cos(t)) / (6.0 * t4);
-    const Scalar c5 = (t2 + 3.0 - 3.0 * t * std::sin(t) - 6.0 * std::cos(t)) / (6.0 * t5);
-    Q = c1 * rK + c2 * (K * rK + rK * K + K * rK * K) + c3 * (K2 * rK + rK * K2) +
-        c4 * (K3 * rK + rK * K3) + c5 * (K4 * rK + rK * K4);
-  } else {
-    Q = 0.5 * skew(rho);
+  Mat6 term = Mat6::Identity();   // ad^n
+  Scalar fact = 1.0;              // (n+1)!
+  for (int n = 1; n <= 20; ++n) {
+    term = term * ad;
+    fact *= static_cast<Scalar>(n + 1);
+    J += ((n % 2) ? -1.0 : 1.0) / fact * term;
   }
-  J.template block<3, 3>(0, 0) = so3RightJacobian(phi);
-  J.template block<3, 3>(0, 3) = Q;
   return J;
 }
 
 Mat6 se3RightJacobianInverse(const Vec6& xi) {
-  const Vec6 neg = -xi;
-  const Mat6 J = se3RightJacobian(neg);
-  const Vec3 rho = xi.head<3>();
-  // Use the analytic block structure: J^{-1} = [[Jr^{-1}, -Jr^{-1} Q Jr^{-1}],
-  //                                           [0, Jr^{-1}]]
-  Mat6 Jinv = Mat6::Zero();
-  const Mat3 Jr = so3RightJacobian(xi.tail<3>());
-  const Mat3 Jri = so3RightJacobianInverse(xi.tail<3>());
-  Jinv.template block<3, 3>(0, 0) = Jri;
-  Jinv.template block<3, 3>(3, 3) = Jri;
-  Jinv.template block<3, 3>(0, 3) = -Jri * J.template block<3, 3>(0, 3) * Jri;
-  (void)rho;
-  (void)Jr;
-  return Jinv;
+  // The inverse is taken of the Jacobian that is actually computed, so the two
+  // cannot drift apart. A hand-derived block inverse (what this used to be) is
+  // only correct if it agrees with the forward Jacobian in every block, and the
+  // forward block was wrong -- the inverse was then wrong in a *different* way
+  // and the product was off by O(10). A 6x6 inverse is a few hundred flops and
+  // this is called once per edge, not per pixel.
+  return se3RightJacobian(xi).inverse();
 }
 
 Vec3 so3Residual(const Mat3& R_meas, const Mat3& R_pred) {

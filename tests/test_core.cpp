@@ -79,6 +79,15 @@ void testAdjoint() {
 }
 
 /// Right Jacobian check: Exp(xi + d) ~= Exp(xi) * Exp(J_r(xi) d) for small d.
+///
+/// The step is scaled with |xi|. The residual of the identity is O(|d|^2)
+/// regardless of |xi|, so a fixed |d| = 1e-6 probes a term of size |xi|^2*1e-12
+/// for a large xi -- far below the double-precision floor of the Exp itself --
+/// and passes for *any* J, correct or not. Taking |d| = eps * (1 + |xi|) keeps
+/// the second-order term measurable while staying in the linear regime, which is
+/// what makes the check able to fail. The previous version of this test used a
+/// fixed 1e-6 and therefore could not distinguish a correct right Jacobian from
+/// the broken closed form that used to live in se3.cpp.
 void testRightJacobian() {
   Rng rng(2024);
   for (int i = 0; i < 60; ++i) {
@@ -88,12 +97,36 @@ void testRightJacobian() {
     Vec6 d;
     d.head<3>() = Vec3(rng.gaussian(1.0), rng.gaussian(1.0), rng.gaussian(1.0));
     d.tail<3>() = Vec3(rng.gaussian(1.0), rng.gaussian(1.0), rng.gaussian(1.0));
-    const Scalar h = 1e-6;
+    const Scalar h = 1e-5 * (1.0 + xi.norm());
     const Mat4 lhs = se3Exp(xi + h * d);
     const Mat4 rhs = se3Exp(xi) * se3Exp(h * (se3RightJacobian(xi) * d));
-    // The residual is O(h) truncation from the finite difference, not a
-    // Jacobian error, so the tolerance is set to a few times h.
-    LUNA_NEAR((lhs - rhs).norm(), 0.0, 1e-5);
+    // The residual is O(h^2): with h ~ 1e-5 that is ~1e-10, an order of
+    // magnitude above the Exp floor and far below what a wrong Jacobian
+    // produces (the old closed form gave ~1e-5 here).
+    LUNA_NEAR((lhs - rhs).norm(), 0.0, 1e-8);
+  }
+
+  // The Jacobian must be the derivative of the Log map, checked against a
+  // central difference of Log(Exp(-xi) Exp(xi + h e_j)) -- the residual the
+  // pose graph actually differentiates. This is the check that cannot be
+  // satisfied by a wrong closed form, because it differences the real map.
+  for (int i = 0; i < 60; ++i) {
+    Vec6 xi;
+    xi.head<3>() = Vec3(rng.gaussian(0.5), rng.gaussian(0.5), rng.gaussian(0.5));
+    xi.tail<3>() = Vec3(rng.gaussian(0.5), rng.gaussian(0.5), rng.gaussian(0.5));
+    const Scalar h = 1e-6;
+    Mat6 fd = Mat6::Zero();
+    for (int j = 0; j < 6; ++j) {
+      Vec6 e = Vec6::Zero();
+      e(j) = 1.0;
+      fd.col(j) = (se3Log(se3Inverse(se3Exp(xi)) * se3Exp(xi + h * e)) -
+                   se3Log(se3Inverse(se3Exp(xi)) * se3Exp(xi - h * e))) /
+                  (2.0 * h);
+    }
+    LUNA_NEAR((se3RightJacobian(xi) - fd).norm(), 0.0, 1e-6);
+    // The inverse is of the forward Jacobian by construction.
+    LUNA_NEAR((se3RightJacobianInverse(xi) * se3RightJacobian(xi) - Mat6::Identity()).norm(), 0.0,
+              1e-10);
   }
 }
 

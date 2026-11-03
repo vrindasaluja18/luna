@@ -59,7 +59,11 @@ class BriefPattern {
 
   int patch() const { return patch_; }
   int halfPatch() const { return patch_ / 2; }
-  Size bytes() const { return offsets_.size() * sizeof(std::int16_t); }
+  /// Bytes held by the sampling pattern. Each entry is a packed
+  /// (dx1, dy1, dx2, dy2) tuple of four int8 offsets, so the stride is
+  /// sizeof(std::array<std::int8_t, 4>) -- four bytes, not the two that a
+  /// sizeof(int16_t) reports.
+  Size bytes() const { return offsets_.size() * sizeof(std::array<std::int8_t, 4>); }
 
  private:
   int patch_ = 31;

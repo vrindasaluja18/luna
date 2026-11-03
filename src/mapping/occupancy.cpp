@@ -109,20 +109,25 @@ void OccupancyMap::evictOne() {
 }
 
 // ---------------------------------------------------------------------------
-// Paging. Tiles are fixed-size records at an offset derived from the key, so
-// the backing file needs no index of its own. A hash of the key selects a
-// sparse region; the OS materialises only pages actually written.
+// Paging. Each tile owns one fixed-size record in the backing file, at offset
+// `slot * tileBytes`, and `page_slots_` is the authority on which key owns
+// which slot. Tiles are therefore never at risk of sharing a record.
+//
+// An earlier version derived the offset from a hash of the key, on the theory
+// that the hash spreads keys over a sparse file and the OS materialises only
+// the pages actually written. That is true, and it is also a silent
+// corruption: a hash maps many keys to one offset, so two tiles in the same
+// bucket share a record and each eviction overwrites the other's evidence.
+// With a 16-bit bucket space the birthday bound bites fast -- about a thousand
+// tiles already collide with probability > 0.99 -- and the failure is
+// invisible until a revisit loads a tile belonging to a different place.
 // ---------------------------------------------------------------------------
-namespace {
-constexpr std::uint64_t kPageStride = 1u << 20;  // 1 MiB per hash bucket
-constexpr std::uint64_t kBuckets = 1u << 16;     // 65536 buckets
-}
-
-bool OccupancyMap::loadPaged(const Key& k, Tile* t) const {
+bool OccupancyMap::loadPaged(const Key& k, Tile* t) {
 #if LUNA_HAVE_MMAP
   if (opt_.backing_path.empty()) return false;
-  const std::uint64_t bucket = KeyHash{}(k) % kBuckets;
-  const off_t off = static_cast<off_t>(bucket * kPageStride);
+  const auto it = page_slots_.find(k);
+  if (it == page_slots_.end()) return false;  // never paged out
+  const off_t off = static_cast<off_t>(it->second * tileBytes(opt_));
   const int fd = ::open(opt_.backing_path.c_str(), O_RDONLY);
   if (fd < 0) return false;
   void* p = ::mmap(nullptr, tileBytes(opt_), PROT_READ, MAP_PRIVATE, fd, off);
@@ -130,7 +135,7 @@ bool OccupancyMap::loadPaged(const Key& k, Tile* t) const {
   if (p == MAP_FAILED) return false;
   std::memcpy(t->data.data(), p, tileBytes(opt_));
   ::munmap(p, tileBytes(opt_));
-  // A never-written bucket reads as zeros, which is exactly "unknown". The
+  // A never-written slot reads as zeros, which is exactly "unknown". The
   // caller treats an all-zero tile as absent, which is correct: a tile whose
   // evidence has decayed to zero carries no information.
   for (LogOdds v : t->data)
@@ -143,11 +148,12 @@ bool OccupancyMap::loadPaged(const Key& k, Tile* t) const {
 #endif
 }
 
-void OccupancyMap::writePaged(const Key& k, const Tile& t) const {
+void OccupancyMap::writePaged(const Key& k, const Tile& t) {
 #if LUNA_HAVE_MMAP
   if (opt_.backing_path.empty()) return;
-  const std::uint64_t bucket = KeyHash{}(k) % kBuckets;
-  const off_t off = static_cast<off_t>(bucket * kPageStride);
+  const std::uint64_t slot = page_slots_.try_emplace(k, next_slot_).first->second;
+  if (slot == next_slot_) ++next_slot_;
+  const off_t off = static_cast<off_t>(slot * tileBytes(opt_));
   const int fd = ::open(opt_.backing_path.c_str(), O_RDWR | O_CREAT, 0644);
   if (fd < 0) return;
   const Size bytes = tileBytes(opt_);

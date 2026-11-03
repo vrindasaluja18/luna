@@ -28,15 +28,21 @@ inline bool isCorner(const std::uint8_t* base, int stride, int p, int t, int* sc
   const int hi = p + t;
   const int lo = p - t;
 
-  // High-speed test on the 4 cardinal points. Any 9-contiguous arc must
-  // include at least 3 of these 4.
+  // High-speed test on the 4 cardinal points {1,5,9,13}. Consecutive test
+  // points are 4 apart, so the widest arc touching only one of them spans 7
+  // pixels -- shorter than the 9 required. Any qualifying arc therefore
+  // contains at least *two* of the four, and rejecting a pixel with fewer than
+  // two can only drop a non-corner. Requiring three (as this test used to) is
+  // not sound for n = 9: the arc 2..12 is nine pixels long and touches only
+  // {5,9}, so a real corner centred on it was rejected before the full test
+  // ever saw it.
   int brighter = 0, darker = 0;
   for (int i = 0; i < 4; ++i) {
     const int q = base[kCircle[kQuad[i]][1] * stride + kCircle[kQuad[i]][0]];
     if (q > hi) ++brighter;
     if (q < lo) ++darker;
   }
-  if (brighter < 3 && darker < 3) return false;
+  if (brighter < 2 && darker < 2) return false;
 
   // Full test: count the longest contiguous run in both directions.
   std::array<int, 16> vals;

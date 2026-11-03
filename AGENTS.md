@@ -191,6 +191,133 @@ the wall. It was replaced; do not reintroduce it.
     the one that shifts. `res.odom_trajectory` is therefore appended at keyframe
     instants, next to `kf_times`, not per frame.
 
+## Shape / layout bugs found by audit (math correct, mapping wrong)
+
+These are bugs where the mathematics was right and the code changed the
+dimension, order, branch or storage width. They are the class that survives
+every test that only checks the theorem.
+
+1. **FAST-9's high-speed test used the FAST-12 threshold.** The cardinal
+   pre-test rejected a pixel with fewer than 3 of the 4 cardinal points
+   qualifying. For n = 9 the widest arc that touches a *single* cardinal point
+   spans 7 pixels, so a real corner can sit on an arc touching only two of them
+   (e.g. indices 2..12, which touches only {5, 9}). The correct threshold for
+   n = 9 is 2; 3 is the FAST-12 figure. The full 16-pixel test was always
+   right -- the pre-test was silently discarding pixels before it ran. Measured
+   effect of the fix: ~+20 % features and ~+35 % valid stereo depths at
+   identical accuracy. `testFastHighSpeedTestKeepsTwoCardinalArc` pins it and
+   fails against the old threshold.
+
+2. **`se3RightJacobian`'s (0,3) block did not reproduce the series it is
+   defined by.** `J_r(xi) = sum (-1)^n/(n+1)! ad_xi^n` is what makes
+   `Exp(xi+d) = Exp(xi) Exp(J_r(xi) d)` hold, and the old hand-derived
+   translation block was wrong by O(1) at |phi| ~ 0.5. The inverse was then
+   wrong in a *different* way (it inverts a block structure the forward map did
+   not have), so `J_r^{-1} J_r` was off by O(10). Both are now built from the
+   one series, and the inverse inverts the matrix actually computed. The
+   existing test only checked the SO(3) block, which was correct -- that is
+   exactly why the bug survived. The replacement checks the defining identity
+   and the Log central difference; it fails against the old code.
+
+3. **`MorseOptions::min_persistence` is dead.** The field is documented in
+   detail and never read anywhere (`max_persistence` is only a *statistic*). The
+   room decomposition is bottleneck-contrast based and persistence is used only
+   to rank. The comment block explaining the threshold is therefore misleading:
+   it describes a knob that has no effect.
+
+4. **The loop-closure acceptance gate tests consistency with the estimate, and
+   the accepted closures are genuine.** `EstimatorOptions::loop_gate_*` compares
+   the candidate against the graph's current prediction. That is the right test:
+   a candidate that disagrees with the estimate is either a bad match or a real
+   loop whose correction the graph has not made yet, and rejecting it is the
+   conservative choice. It was suspected of admitting forward overlap, so it was
+   measured rather than argued about: instrumenting the accepted closures on
+   `rooms` seed 6 shows each joins keyframes that are spatially close *because
+   the vehicle returned*, not because they are neighbours in time. The three
+   closures on a 300 s run are 160-259 keyframe indices apart with 85-138 m of
+   travelled path and a 1.7-3.4 m end-to-end separation -- i.e. the vehicle
+   drove tens of metres to come back within a couple of metres, which is what a
+   loop is. A `max_candidate_distance` proximity gate was prototyped on this
+   theory and reverted: it filtered nothing the existing gate kept, and would
+   have rejected legitimate large loops. Do not re-add it without a measured
+   false positive to justify it.
+
+5. **`test_estimator`'s old `testLoopClosureCorrectsRealDrift` asserted a
+   property that is not there.** On `rooms` seed 6 the odometry drift is ~1 m
+   over 300 s and one closure measurement's error is the same order, so adding
+   the (all-correct) closures perturbs the estimate by less than the measurement
+   error and `with_loops.rmse < without.rmse` can go either way. The strict form
+   happened to be green before the FAST fix and red after it -- the FAST fix
+   merely moved the noise floor of the frontend, it did not break the matcher.
+   The test is now `testLoopClosureDoesNotDegradeGoodOdometry`, which asserts
+   the contract the design actually guarantees (no false positives, no material
+   degradation) with a tolerance. Do not "fix" the accuracy number by retuning
+   `min_sigma`; the section below explains why that is discarding the closures.
+
+6. **The occupancy backing file mapped many tiles onto one page.** `loadPaged`
+   / `writePaged` derived the file offset from `KeyHash{}(k) % kBuckets` with
+   `kBuckets = 1 << 16` and a 1 MiB stride. `tile_cells = 64` of `LogOdds`
+   (float) is only 16 KiB, so 64 tiles shared every 1 MiB region. Two tiles that
+   hashed to the same bucket silently overwrote each other's bytes and then read
+   them back as their own -- a loaded tile was another place's map, with no
+   error and no way to notice. The birthday bound made this the common case, not
+   the corner case: 1000 tiles collide with probability 0.9995, and in an 81x81
+   tile window there are 1208 colliding pairs. *Fixed*: each tile now owns one
+   record in the file via an explicit `page_slots_` key -> slot index, so
+   distinct tiles cannot share a record no matter how the hash behaves. The file
+   is still a sparse address space indexed by slot, which is what keeps a
+   revisit cheap. `testPagedTilesDoNotCollide` uses two keys that collide in the
+   old 16-bit bucket (`(-1,5)` and `(1,-5)`), drives them through eviction with
+   a four-tile cache, and asserts the first tile survives the round trip; it
+   fails against the old hash-offset code. Paging is still off by default
+   (`page_to_disk = false`), so this was latent in every shipped run.
+
+7. **`BriefPattern::bytes()` reported half the pattern's true size.**
+   `offsets_` is a `std::vector<std::array<std::int8_t, 4>>`, but the accessor
+   multiplied by `sizeof(std::int16_t)`. The pattern is 256 pairs x 4 int8 = 1024
+   bytes; the accessor said 512. This is the pure form of the class: the storage
+   is right, the *width* used to describe it is wrong, and nothing that indexes
+   through `operator[]` can notice. It only bites when the number is used to size
+   or budget a buffer, which is exactly what a footprint accessor is for. The
+   test now asserts the exact figure (`256 * 4`) rather than `> 0`.
+
+## Per-module math -> memory map
+
+The rule the modules follow, and the one to keep: *the precision the maths needs
+sets the element type; the layout follows the maths.* A buffer is sized from the
+quantity it stores, not from the type that happened to be convenient.
+
+| module | mathematical object | stored as | why that width |
+|---|---|---|---|
+| `sim/world` | occupancy: free / occupied / unknown | `uint8` per cell | 3 states, no arithmetic on it |
+| `sim/world` | clearance field (distance to nearest obstacle) | `Scalar` (double) | feeds the planner's clearance test; sub-mm matters against a 0.46 m threshold |
+| `mapping/occupancy` | log-odds evidence per cell | `LogOdds` (float) | accumulated, clamped, never differenced finely |
+| `topology/morse` | height field = smoothed clearance | `Scalar` (double) | persistence differences of ~0.2 m must survive smoothing; float's ~1e-7 relative error is fine *here* only because the field is bounded, but it is kept double to match `clearance_` and avoid a conversion |
+| `planning/planner` | per-cell clearance on the plan's grid | `Scalar` (double) | compared against the vehicle's footprint |
+| `frontend/klt` | gradient / reference patch | `Scalar` (double) | accumulators in the normal equations |
+| `backend/pose_graph` | edge residuals, chi^2 | `Scalar` (double) | the solver's convergence is judged at 1e-7 |
+| `backend/loop_close` | 256-bit descriptor | `std::array<std::uint64_t,4>` | Hamming distance via `popcountll`; no per-bit storage needed |
+| `core/alloc` | arena bytes | `std::byte` | raw |
+
+Concrete numbers at the CI resolution (0.05 m, ~1200x1200 cells = 1.44 M cells):
+occupancy 1.4 MB, one double field 11.5 MB, one int32 index field 5.8 MB. The
+Morse flood alone holds six per-cell buffers (`hf`, `order`, `processed`,
+`comp_max`, `is_max`, `cell_peak`) plus the union-find's two, which is ~43 MB at
+that resolution -- the single largest transient in the pipeline, and the reason
+`hf` and friends are allocated once per analysis rather than per query.
+
+Two deliberate non-obvious choices:
+
+* `Index` is `int32`, not `size_t`, for cell indices. It halves every index
+  field, and 2^31 cells is four orders of magnitude beyond the map. The
+  conversion sites are the ones to watch when changing a loop's type.
+* `PoolAllocator`/`RingAllocator` in `core/alloc.hpp` are *not used* by the
+  pipeline -- only by `test_core`. The header documents them as the enforcement
+  mechanism for the 8 GB budget, but the modules allocate with `std::vector`.
+  That is a documentation/implementation gap worth knowing before trusting the
+  "all long-lived allocations go through luna::alloc pools" claim in
+  `CMakeLists.txt`.
+
 ## Loop closure: where the accuracy actually comes from
 
 All eight closures on the reference run are correct (100 % precision) and the

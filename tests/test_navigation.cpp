@@ -5,10 +5,13 @@
 // fault, and the monotonicity properties the chance constraint depends on.
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 #include "luna/app/navigation.hpp"
 #include "luna/control/mpc.hpp"
+#include "luna/mapping/occupancy.hpp"
 #include "luna/planning/planner.hpp"
 #include "luna/sim/world.hpp"
 #include "luna/topology/morse.hpp"
@@ -347,7 +350,54 @@ void testNavigateReconstructedMapIsHonest() {
   }
 }
 
+void testPagedTilesDoNotCollide() {
+  // Regression: the paging path used to derive a tile's backing-file offset
+  // from a hash of its key. Any hash collides, so two tiles could share a
+  // record and each eviction silently overwrote the other's evidence; the
+  // corruption only surfaced when a revisit loaded the wrong tile.
+  //
+  // The two keys below -- (-1,5) and (1,-5) -- collide in the low 16 bits of
+  // the key hash, which is exactly what the old offset was built from. A tiny
+  // resident cap forces the eviction/reload cycle that the corruption needs.
+  mapping::OccupancyOptions opt;
+  opt.tile_cells = 8;
+  opt.resolution = 0.5;
+  // The constructor floors the cap at 4; two tiles plus two fillers is enough
+  // to force eviction of the first tile.
+  opt.max_resident_tiles = 4;
+  opt.page_to_disk = true;
+  const std::string path = "/tmp/luna_page_collision_test.bin";
+  opt.backing_path = path;
+  std::remove(path.c_str());
+
+  // Tiles, and a point that lands on a *non-central* local cell of each, so a
+  // collision is distinguishable from a legitimate match:
+  //   A tile (-1, 5): (-3.25, 20.75)  -> local cell (1,1) of A
+  //   B tile ( 1,-5): ( 6.25,-17.75)  -> local cell (4,4) of B  [collides with A]
+  //   fillers        : tiles (3,3),(5,5),(7,7),(9,9), distinct buckets
+  // Four fillers with a resident cap of four drive two evictions: the first
+  // writes A out, the second (B, by then the LRU) writes to A's record on the
+  // old code. If A and B share a record, A's local (1,1) then holds B's local
+  // (1,1), which was never set, so the final check comes back unknown.
+  mapping::OccupancyMap m(opt);
+  m.markDisc(Vec2(-3.25, 20.75), 0.25, true);   // create A, set local (1,1)
+  m.markDisc(Vec2(6.25, -17.75), 0.25, true);   // create B
+  m.markDisc(Vec2(14.0, 14.0), 0.25, true);     // filler tile (3,3)
+  m.markDisc(Vec2(22.0, 22.0), 0.25, true);     // filler tile (5,5)
+  m.markDisc(Vec2(30.0, 30.0), 0.25, true);     // filler tile (7,7) -> evicts A
+  m.markDisc(Vec2(38.0, 38.0), 0.25, true);     // filler tile (9,9) -> evicts B
+
+  // Touch A at a different local cell (6,6): A is reloaded from the backing
+  // file. On the old code B shares A's record and B's eviction writes there, so
+  // the reload hands A B's contents and local (1,1) is lost.
+  m.markDisc(Vec2(-0.75, 23.25), 0.25, false);  // tile (-1,5), local (6,6)
+
+  LUNA_CHECK(m.atWorld(Vec2(-3.25, 20.75)) == sim::Cell::kOccupied);
+  std::remove(path.c_str());
+}
+
 void run() {
+  testPagedTilesDoNotCollide();
   testChanceConstraintMonotonic();
   testCovarianceDetMonotonic();
   testVelocityProfileRespectsBraking();
