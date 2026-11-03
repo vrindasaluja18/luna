@@ -3,212 +3,189 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Liquid memory — LUNA</title>
-<meta name="description" content="What a CPU-only SLAM stack is for: the topology module is already persistence-based clustering, and the same quantity can govern its memory and its reward.">
-<meta name="theme-color" content="#07080a">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffb454'/%3E%3Ccircle cx='21' cy='13' r='12' fill='%2307080a'/%3E%3C/svg%3E">
+<title>Luna — data as a point space, and clusters</title>
+<meta name="description" content="One idea, shown with two animations: data is a point space, and clusters are the shapes in it. What Luna is for.">
+<meta name="color-scheme" content="light">
+<style>
+  /* Inlined critical style so the page paints immediately; the rest is style.css. */
+  body { margin:0; background:#fbfaf6; color:#17161a;
+         font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; }
+</style>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header class="hero">
   <div class="wrap">
-    <p class="backlink"><a href="../">← LUNA project</a></p>
-    <p class="kicker">research note / draft</p>
-    <h1>Liquid memory</h1>
-    <p class="sub">What a CPU-only SLAM stack is actually for — and the one quantity that
-      can govern its clustering, its eviction, and its reward.</p>
-    <p class="byline">vrinda · <span id="yr"></span></p>
+    <p class="kicker">Luna · a way of seeing</p>
+    <h1>Data is a point space.<br>Clusters are the shapes in it.</h1>
+    <p class="lede">
+      Everything below is one idea, drawn twice. There is no product here and no
+      benchmark. There is a way of looking at a problem that made it tractable,
+      and two animations that show it.
+    </p>
   </div>
 </header>
 
-<main class="wrap">
+<main>
 
+  <!-- ============================ FRAMING ============================ -->
   <section>
-    <h2>Two principles</h2>
-    <div class="cols">
-      <div class="card">
-        <h3>Nothing is true unless it is in maths</h3>
-        <p>Prose is for intuition. If a claim can't be written as an equation or measured as a
-          number, it isn't a claim yet — it's a feeling. The practical form, for a codebase:
-          every quantity needs a consumer that changes a decision; every buffer needs a
-          justification in bytes; every README claim needs a measurement behind it.</p>
-      </div>
-      <div class="card">
-        <h3>Compute is precious</h3>
-        <p>Every line must answer: <em>what decision does this change?</em> If the answer is
-          nothing, it's a cost with no benefit. The first, most primitive version of the
-          question is the one I couldn't answer for a long time — <strong>which thing would
-          be on DRAM?</strong></p>
-      </div>
+    <div class="wrap">
+      <p class="sec-kicker">01 / Framing</p>
+      <h2>What Luna is for</h2>
+
+      <p>
+        Luna is a small navigation system. But the thing worth saying about it is
+        not that it drives. It is the question it was built to answer, which is
+        older and simpler than robotics:
+      </p>
+
+      <p class="pull">
+        If you cannot label your data, how do you find the structure in it?
+      </p>
+
+      <p>
+        The answer Luna commits to is to stop thinking of the data as a picture
+        or a grid, and start thinking of it as <strong>a cloud of points in a
+        space</strong>. A point per cell of the map. Nearby points are similar;
+        far points are different. That is the whole setup.
+      </p>
+
+      <p>
+        Once the data is a point space, structure stops being something you
+        impose and becomes something you <em>observe</em>. Where are the points
+        dense? Where are they sparse? The dense regions are the structure. They
+        are called <strong>clusters</strong>, and no one had to tell the
+        algorithm how many there are.
+      </p>
     </div>
   </section>
 
+  <!-- ============================ ANIMATION 1 ============================ -->
   <section>
-    <h2>The pipeline, and where the bytes live</h2>
-    <p class="lede">Hover or tap a stage to see what it holds. Bar width is proportional to
-      peak bytes resident. The estimator and the pose graph are O(1) and O(keyframes); only
-      the map fields scale with area — and the largest transient is not the SLAM.</p>
+    <div class="wrap">
+      <p class="sec-kicker">02 / The picture</p>
+      <h2>Points, density, clusters</h2>
 
-    <div class="flow">
-      <canvas id="flowCanvas" width="1100" height="300" aria-label="Animated data flow from sensors through SLAM, map, topology, planning and control"></canvas>
+      <p>
+        The animation runs in three beats. First the data arrives as a scatter of
+        points. Then it is read as a <em>density</em> — a landscape that is high
+        where points gather. Then the high ground is named: each dense region
+        becomes one cluster, found rather than given.
+      </p>
+
+      <figure class="anim">
+        <div class="canvas-box"><canvas id="c-points" aria-label="Animated diagram: a point cloud resolving into density and then into two clusters"></canvas></div>
+        <figcaption>
+          <b>One cloud, three readings.</b> Points (top) are the data. Density is
+          what those points imply. Clusters are the dense regions, coloured once
+          the density says they are separate.
+        </figcaption>
+        <div class="legend">
+          <span><i class="swatch" style="background:#2b6a6a"></i> cluster A</span>
+          <span><i class="swatch" style="background:#c25a3c"></i> cluster B</span>
+          <span><i class="swatch" style="background:#c9c4b6"></i> low density</span>
+        </div>
+      </figure>
     </div>
+  </section>
 
-    <div class="stages" id="stageList">
-      <button class="stage" data-k="sim">
-        <span class="nm">sim</span><span class="bar" style="--w:4%"></span>
-        <span class="meta">world · sensors · faults</span>
-        <span class="bytes">O(1)</span>
-      </button>
-      <button class="stage" data-k="frontend">
-        <span class="nm">frontend</span><span class="bar" style="--w:8%"></span>
-        <span class="meta">FAST · BRIEF · KLT · stereo</span>
-        <span class="bytes">O(features)</span>
-      </button>
-      <button class="stage" data-k="backend">
-        <span class="nm">backend</span><span class="bar" style="--w:14%"></span>
-        <span class="meta">pose graph · Schur marginal</span>
-        <span class="bytes">O(keyframes)</span>
-      </button>
-      <button class="stage" data-k="mapping">
-        <span class="nm">mapping</span><span class="bar" style="--w:26%"></span>
-        <span class="meta">occupancy log-odds · clearance</span>
-        <span class="bytes">2.4 + 4.9 MB</span>
-      </button>
-      <button class="stage hot" data-k="topology">
-        <span class="nm">topology</span><span class="bar" style="--w:100%"></span>
-        <span class="meta">Morse flood — 8 per-cell buffers alive at once</span>
-        <span class="bytes">18.3 MB</span>
-      </button>
-      <button class="stage" data-k="planning">
-        <span class="nm">planning</span><span class="bar" style="--w:10%"></span>
-        <span class="meta">corridor A* · grid fallback</span>
-        <span class="bytes">O(nodes)</span>
-      </button>
-      <button class="stage" data-k="control">
-        <span class="nm">control</span><span class="bar" style="--w:6%"></span>
-        <span class="meta">bicycle MPC · chance constraints</span>
-        <span class="bytes">O(1)</span>
-      </button>
+  <!-- ============================ ANALOGY ============================ -->
+  <section>
+    <div class="wrap">
+      <p class="sec-kicker">03 / The analogy</p>
+      <h2>A map is a point cloud</h2>
+
+      <p>
+        Now put a robot on that cloud. Each cell the robot has seen becomes a
+        point. Two points are similar when they are both open space; different
+        when a wall separates them. The clusters that fall out are exactly the
+        things a driver cares about:
+      </p>
+
+      <p>
+        a dense, roomy region is a <strong>room</strong>. The thin, sparse neck
+        between two rooms is a <strong>doorway</strong>. The whole map becomes a
+        small graph of rooms and doorways — and it was never labelled by hand.
+        The structure was read off the density.
+      </p>
+
+      <p>
+        That is the bridge from an abstract idea to a working one. The same
+        sentence that describes a point cloud also describes a building.
+      </p>
     </div>
-
-    <p class="note" id="stageNote">The ratio that matters isn't bytes — it's
-      <strong>bytes held per decision served</strong>. 18.3 MB of flood produces one corridor
-      graph the planner queries once per plan. Driving that ratio down is the goal.</p>
   </section>
 
+  <!-- ============================ ANIMATION 2 ============================ -->
   <section>
-    <h2>The finding</h2>
-    <p class="lede">The topology module is already persistence-based clustering, and doesn't
-      know it.</p>
-    <div class="codecard">
-      <div class="codehead">include/luna/topology/morse.hpp</div>
-      <pre><code><span class="cm">// was: Scalar min_persistence = 0.20;
-// declared, documented at length, read by nothing.
-// Deleted in Phase 0 — a false promise in the options struct.</span>
+    <div class="wrap">
+      <p class="sec-kicker">04 / The catch</p>
+      <h2>When two clusters are really one</h2>
 
-Scalar min_bottleneck_contrast = 0.75;  <span class="cm">// what actually decides
-                                        // "is this a room": a density
-                                        // contrast test.</span></code></pre>
+      <p>
+        There is one hard question left, and it is the whole difficulty. Two
+        dense regions might be genuinely separate, or they might be one region
+        pinched in the middle. How deep must the pinch be before you call it a
+        doorway rather than a wobble?
+      </p>
+
+      <p>
+        The animation answers it the only honest way: lower a threshold and
+        watch. As the level drops, the two clusters hold together until it
+        reaches the height of the valley between them — then they merge. The
+        depth of that valley is how <em>real</em> the separation was. It is
+        called <strong>persistence</strong>.
+      </p>
+
+      <figure class="anim">
+        <div class="canvas-box"><canvas id="c-merge" aria-label="Animated diagram: two density peaks merging as a threshold descends past the valley between them"></canvas></div>
+        <figcaption>
+          <b>The merge is the measurement.</b> The dashed level sweeps down. While
+          it sits above the valley the two peaks are two clusters; when it passes
+          the valley they become one. The valley depth is the persistence — a
+          number, not a guess.
+        </figcaption>
+        <div class="legend">
+          <span><i class="swatch" style="background:#2b6a6a"></i> level above valley → 2 clusters</span>
+          <span><i class="swatch" style="background:#c25a3c"></i> level below valley → 1 cluster</span>
+        </div>
+      </figure>
     </div>
-    <p>So the room/doorway decision is made by asking <em>“does the vehicle have to squeeze
-      through?”</em> — which is exactly the criterion of Chazal, Guibas, Oudot &amp; Skraba,
-      <a href="https://doi.org/10.1145/2535927">Persistence-Based Clustering in Riemannian
-      Manifolds</a>, J. ACM 2013:</p>
-    <blockquote>A cluster is a region of high density, separated from other such regions by
-      low density. Combine a mode-seeking phase with a merging phase; merge two clusters when
-      the density between them is high relative to their own.</blockquote>
-    <p>That is a finding, not a bug to patch. The correct maths was already in the system; the
-      only reason it looked like a heuristic is that nobody had written down what it was a
-      special case <em>of</em>.</p>
   </section>
 
+  <!-- ============================ CLOSE ============================ -->
   <section>
-    <h2>Three flows — only one is liquid</h2>
-    <table class="tbl">
-      <thead><tr><th>flow</th><th>form</th><th>in Luna?</th></tr></thead>
-      <tbody>
-        <tr>
-          <td><strong>A · supervised</strong></td>
-          <td class="mono">ẋ = f<sub>θ</sub>(x,t), &nbsp; dL/dθ = ∫ λᵀ ∂f/∂θ dt</td>
-          <td class="no">no — no autograd, no tape, no ODE solver</td>
-        </tr>
-        <tr>
-          <td><strong>B · occupancy</strong></td>
-          <td class="mono">ℓ ← clamp(ℓ + Δ, −4, +4)</td>
-          <td class="yes">yes — saturated, already implemented</td>
-        </tr>
-        <tr>
-          <td><strong>C · topological</strong></td>
-          <td class="mono">fidelity ∝ persistence</td>
-          <td class="no">target</td>
-        </tr>
-      </tbody>
-    </table>
-    <p>Flow B is a flow with a <strong>bounded state</strong>, which makes the map a
-      contraction: recent evidence wins, old evidence decays, one bad measurement can't flip a
-      long-free cell. What it lacks is a term for memory — <span class="mono">−λ·(fidelity
-      pressure)</span>. That missing λ is the first real work.</p>
-    <p class="punch">Liquid memory, defined as a flow rather than a slogan: <strong>hold each
-      region at a fidelity proportional to its persistence, and release it when persistence
-      falls below what its DRAM cost can justify.</strong></p>
-  </section>
+    <div class="wrap">
+      <p class="sec-kicker">05 / Why it matters</p>
+      <h2>One idea, three jobs</h2>
 
-  <section>
-    <h2>Who does what, when there is no RL</h2>
-    <p class="lede">There is no reinforcement learning in Luna. The roles are filled by
-      classical components — and the missing rows are the whole story.</p>
-    <table class="tbl">
-      <thead><tr><th>RL role</th><th>filled by</th><th>present?</th></tr></thead>
-      <tbody>
-        <tr><td>environment</td><td class="mono">sim</td><td class="yes">yes</td></tr>
-        <tr><td>state</td><td class="mono">pose + occupancy</td><td class="yes">yes</td></tr>
-        <tr><td>observation</td><td class="mono">camera / IMU / odometry</td><td class="yes">yes</td></tr>
-        <tr><td>model update</td><td class="mono">pose-graph least squares</td><td class="yes">yes</td></tr>
-        <tr class="miss"><td>reward</td><td class="mono">—</td><td class="no">missing</td></tr>
-        <tr class="miss"><td>policy</td><td class="mono">route follower is scripted</td><td class="no">missing</td></tr>
-        <tr class="miss"><td>action space</td><td class="mono">—</td><td class="no">missing</td></tr>
-        <tr class="miss"><td>value / critic</td><td class="mono">—</td><td class="no">missing</td></tr>
-      </tbody>
-    </table>
-    <p>They are missing for one reason: <strong>the route follower is scripted, so the sensor
-      stream does not depend on any decision.</strong> There is nothing to optimise a policy
-      against. That is not an oversight — it is the boundary of the design, and why “Luna
-      learns” can't be claimed yet.</p>
-  </section>
+      <p>
+        The reason to fix on a single idea is that a single idea can be reused.
+        Persistence — the depth of that valley — turns out to answer three
+        questions that are normally three separate pieces of machinery: which
+        regions are separate, which regions are worth keeping in memory, and
+        which regions are worth going to look at next.
+      </p>
 
-  <section>
-    <h2>The plan</h2>
-    <ol class="phases">
-      <li><span class="ph">Phase 0</span><span class="pd"><b>Done.</b> Every buffer above 1 MB measured on a real run and its consumer named. <span class="mono">min_persistence</span> deleted — declared, documented, never read. Blur rewritten from 5 buffers to 2, verified bit-identical. The blur did <em>not</em> move the process peak; that is reported, not hidden.</span><span class="tag done">done</span></li>
-      <li><span class="ph">Phase 1</span><span class="pd">The reward as a pure function of a recorded run: <span class="mono">scoreRun → {PE, HE, BD, task}</span>. No learning.</span><span class="tag now">start here</span></li>
-      <li><span class="ph">Phase 2</span><span class="pd">A store of seeded runs; the reward ranks routes across them.</span><span class="tag">research</span></li>
-      <li><span class="ph">Phase 3</span><span class="pd">A bandit over route choices. “Learning” first becomes true here.</span><span class="tag">research</span></li>
-      <li><span class="ph">Phase 4</span><span class="pd">Active SLAM — open the action space. Only if Phase 3 shows signal.</span><span class="tag">later</span></li>
-    </ol>
-    <p class="note">The first two phases are the blog. The last two are the research.</p>
-  </section>
-
-  <section class="credit">
-    <h2>Credit</h2>
-    <p>The framing — topological memory, persistence as the currency, islands and the
-      connections between them, classical-systems discipline — comes from
-      <a href="https://github.com/teerthsharma">Teerth Sharma</a>. The application is mine:
-      a CPU SLAM stack already computes persistence-based clustering without having named it,
-      and the same quantity can be made to govern its memory and its reward.</p>
-    <p class="meta">Source: <a href="https://github.com/vrindasaluja18/luna">github.com/vrindasaluja18/luna</a>
-      · <a href="https://github.com/vrindasaluja18/luna/blob/main/docs/blog/01-liquid-memory.md">full note (markdown)</a></p>
+      <p>
+        Finding clusters, deciding what to forget, and choosing where to explore
+        are usually three different problems with three different tunings. Here
+        they are one number, read off the same shape. That is the whole claim,
+        and it is why the page is one page.
+      </p>
+    </div>
   </section>
 
 </main>
 
 <footer>
   <div class="wrap">
-    <p>LUNA — a CPU-only SLAM testbed for topological memory management. Draft note; numbers
-      marked “not measured” are not measured.</p>
+    <p>
+      Luna · a CPU-only navigation stack, used here as a testbed for that one
+      idea. <a href="https://github.com/vrindasaluja18/luna">Source</a>.
+    </p>
   </div>
 </footer>
 

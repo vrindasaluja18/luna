@@ -1,253 +1,243 @@
-/* LUNA — data-flow animation.
-   Dependency-free canvas. Data particles travel left to right through the
-   pipeline. Their speed is scaled by the *resident bytes* of the stage they are
-   crossing, so they bunch up at the Morse topology stage — the 18.3 MB transient
-   is the bottleneck, and the animation is meant to make that legible rather
-   than decorative. Clicking a stage row below emphasises its node. */
+/* Two animations for the Luna page.
+
+   c-points  — one cloud read three ways: points -> density -> clusters.
+   c-merge   — two peaks merging as a threshold descends past the valley.
+
+   Plain canvas 2D. No libraries, no network. Both respect
+   prefers-reduced-motion by drawing a single informative frame. */
 
 (function () {
   "use strict";
 
-  var canvas = document.getElementById("flowCanvas");
-  if (!canvas) return;
-  var ctx = canvas.getContext("2d");
+  var TEAL = "#2b6a6a";
+  var CLAY = "#c25a3c";
+  var INK = "#17161a";
+  var MUTE = "#8b877f";
+  var RULE = "#e5e1d7";
+  var LIGHT = "#c9c4b6";
 
-  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var reduce = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // weight drives node size and particle speed. topology = 18.3 MB is the peak.
-  var STAGES = [
-    { k: "sim",       nm: "sim",       bytes: "O(1)",       weight: 4   },
-    { k: "frontend",  nm: "frontend",  bytes: "O(feat)",    weight: 8   },
-    { k: "backend",   nm: "backend",   bytes: "O(kf)",      weight: 14  },
-    { k: "mapping",   nm: "mapping",   bytes: "7.3 MB",     weight: 40  },
-    { k: "topology",  nm: "topology",  bytes: "18.3 MB",    weight: 100 },
-    { k: "planning",  nm: "planning",  bytes: "O(nodes)",   weight: 10  },
-    { k: "control",   nm: "control",   bytes: "O(1)",       weight: 6   }
-  ];
-
-  var C = {
-    ink:   "#0a0c0f",
-    rule:  "#232a33",
-    dim:   "#aab4c0",
-    paper: "#e9edf2",
-    amber: "#ffb454",
-    trace: "#66e0ff",
-    hot:   "#ffb454"
-  };
-
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
-  var W = 1100, H = 300;
-  var nodes = [];
-  var particles = [];
-  var active = null;      // stage key currently emphasised
-  var hover = null;
-
-  var NPART = 64;
-
-  function layout() {
-    var padL = 78, padR = 78, padT = 118;
-    var n = STAGES.length;
-    var span = W - padL - padR;
-    nodes = STAGES.map(function (s, i) {
-      var x = padL + (span * i) / (n - 1);
-      return {
-        k: s.k, nm: s.nm, bytes: s.bytes, weight: s.weight,
-        x: x, y: padT, r: 5 + Math.sqrt(s.weight) * 1.05
-      };
-    });
-    // cumulative path lengths for particle positioning
-    var acc = 0;
-    nodes[0].s0 = 0;
-    for (var i = 1; i < nodes.length; i++) {
-      acc += Math.hypot(nodes[i].x - nodes[i - 1].x, nodes[i].y - nodes[i - 1].y);
-      nodes[i].s0 = acc;
+  function setup(id, h) {
+    var c = document.getElementById(id);
+    if (!c) return null;
+    var dpr = window.devicePixelRatio || 1;
+    function resize() {
+      var w = c.clientWidth || c.parentNode.clientWidth || 640;
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      c.style.height = h + "px";
+      var g = c.getContext("2d");
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c._w = w; c._h = h;
+      return g;
     }
-    nodes.total = acc;
+    return { c: c, resize: resize, h: h };
   }
 
-  function pointAt(s) {
-    var total = nodes.total;
-    s = Math.max(0, Math.min(total, s));
-    for (var i = 1; i < nodes.length; i++) {
-      if (s <= nodes[i].s0) {
-        var a = nodes[i - 1], b = nodes[i];
-        var seg = nodes[i].s0 - a.s0;
-        var t = seg > 0 ? (s - a.s0) / seg : 0;
-        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, i: i };
+  function loop(fn, staticT) {
+    // Under reduced motion draw one frame chosen to be the most informative
+    // state of that particular animation, not an arbitrary mid-transition.
+    if (reduce) { fn(staticT); return; }
+    function tick(ms) { fn((ms % 9000) / 9000); requestAnimationFrame(tick); }
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------------------------------------------------------------- points */
+
+  // Deterministic cloud: two gaussian blobs plus a thin bridge, in unit space.
+  function makeCloud(n) {
+    var pts = [];
+    function rnd(seed) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    var s = 7;
+    function gauss() {
+      var u = Math.max(rnd(s = (s + 1) | 0), 1e-6), v = rnd(s = (s + 1) | 0);
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    for (var i = 0; i < n; i++) {
+      var left = i % 2 === 0;
+      var cx = left ? 0.34 : 0.66, cy = left ? 0.52 : 0.46;
+      pts.push({
+        x: cx + gauss() * 0.085,
+        y: cy + gauss() * 0.11,
+        left: left,
+        ph: rnd(s = (s + 1) | 0) * 6.283
+      });
+    }
+    return pts;
+  }
+
+  var cloud = makeCloud(150);
+
+  var P = setup("c-points", 330);
+  if (P) {
+    var drawPoints = function (t) {
+      var g = P.resize();
+      var w = P.c._w, h = P.c._h;
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = "#fff"; g.fillRect(0, 0, w, h);
+
+      // Phase weights, each a smooth ramp.
+      var ramp = function (a, b) { return Math.max(0, Math.min(1, (t - a) / (b - a))); };
+      var wPts = 1 - ramp(0.30, 0.46);            // points fade as density arrives
+      var wDen = ramp(0.24, 0.50) * (1 - ramp(0.78, 0.94));
+      var wClu = ramp(0.62, 0.80);                 // clusters colour in
+      var intro = ramp(0.0, 0.16);
+
+      var pad = 26, W = w - pad * 2, H = h - pad * 2;
+      var X = function (u) { return pad + u * W; };
+      var Y = function (v) { return pad + v * H; };
+
+      // density layer: additive soft blobs, drawn faintly
+      if (wDen > 0.01) {
+        g.globalAlpha = 0.16 * wDen;
+        for (var i = 0; i < cloud.length; i++) {
+          var p = cloud[i], R = 44;
+          var grd = g.createRadialGradient(X(p.x), Y(p.y), 0, X(p.x), Y(p.y), R);
+          grd.addColorStop(0, TEAL);
+          grd.addColorStop(1, "rgba(43,106,106,0)");
+          g.fillStyle = grd;
+          g.beginPath(); g.arc(X(p.x), Y(p.y), R, 0, 6.2832); g.fill();
+        }
+        g.globalAlpha = 1;
       }
-    }
-    var last = nodes[nodes.length - 1];
-    return { x: last.x, y: last.y, i: nodes.length - 1 };
+
+      // points
+      for (var j = 0; j < cloud.length; j++) {
+        var q = cloud[j];
+        var jitter = reduce ? 0 : Math.sin(t * 12 + q.ph) * 1.4 * intro;
+        var col;
+        if (wClu > 0.5) col = q.left ? TEAL : CLAY;
+        else col = "#6f6b62";
+        g.globalAlpha = (0.85 * wPts + 0.9 * wClu * 0.35) * intro;
+        g.fillStyle = col;
+        g.beginPath();
+        g.arc(X(q.x) + jitter, Y(q.y), wClu > 0.5 ? 3.4 : 2.7, 0, 6.2832);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+
+      // cluster labels once they exist
+      if (wClu > 0.6) {
+        g.globalAlpha = (wClu - 0.6) / 0.4;
+        g.font = "600 12px " + mono();
+        g.textAlign = "center";
+        g.fillStyle = TEAL; g.fillText("cluster A", X(0.34), Y(0.52) + 92);
+        g.fillStyle = CLAY; g.fillText("cluster B", X(0.66), Y(0.46) + 92);
+        g.globalAlpha = 1;
+      }
+
+      // stage caption, bottom-left
+      g.font = "500 12px " + mono();
+      g.textAlign = "left";
+      g.fillStyle = MUTE;
+      var cap = t < 0.26 ? "1 · points" : (t < 0.66 ? "2 · density" : "3 · clusters");
+      g.fillText(cap, pad, h - 12);
+    };
+    loop(drawPoints, 0.95);   // static frame: clusters coloured
+    window.addEventListener("resize", function () { drawPoints(0.95); });
   }
 
-  // speed multiplier: heavy stages slow the flow. normalised so 18.3 MB -> 0.22
-  function speedAt(s) {
-    var p = pointAt(s);
-    var near = 0;
-    for (var i = 0; i < nodes.length; i++) {
-      var d = Math.abs(p.x - nodes[i].x);
-      var reach = nodes[i].r + 26;
-      if (d < reach) near = Math.max(near, nodes[i].weight / 100 * (1 - d / reach));
-    }
-    return 1 - 0.78 * near;
+  /* ----------------------------------------------------------------- merge */
+
+  // A one-dimensional density with two peaks and a valley between them.
+  function f(x) {
+    var g = function (c, s) { return Math.exp(-0.5 * Math.pow((x - c) / s, 2)); };
+    return g(0.34, 0.095) + g(0.66, 0.095) + 0.06;
   }
 
-  function resetParticle(p) {
-    p.s = Math.random() * nodes.total;
-    p.base = 42 + Math.random() * 46;   // px per second
-    p.alpha = 0.35 + Math.random() * 0.5;
+  var M = setup("c-merge", 330);
+  if (M) {
+    // Valley height: sample the midpoint.
+    var VALLEY = f(0.5);
+
+    var drawMerge = function (t) {
+      var g = M.resize();
+      var w = M.c._w, h = M.c._h;
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = "#fff"; g.fillRect(0, 0, w, h);
+
+      var pad = 34, top = 26, base = h - 40;
+      var W = w - pad * 2;
+      var X = function (u) { return pad + u * W; };
+      var peak = 1.13;                                  // a little headroom
+      var Y = function (v) { return base - (v / peak) * (base - top); };
+
+      // level sweeps from above the peaks to below the valley, then holds.
+      var sweep = Math.min(1, t / 0.72);
+      var eased = 1 - Math.pow(1 - sweep, 2);
+      // Start just below the peaks (two caps) and end below the valley (one
+      // region). Starting above the peaks would show an empty frame first.
+      var level = 1.00 + (0.30 - 1.00) * eased;
+
+      // filled region where f >= level, coloured by connected component
+      var N = 240, runs = [], cur = null;
+      for (var i = 0; i <= N; i++) {
+        var x = i / N, above = f(x) >= level;
+        if (above) { if (!cur) { cur = { a: x, b: x }; runs.push(cur); } else cur.b = x; }
+        else cur = null;
+      }
+
+      // area under the curve, faint
+      g.beginPath();
+      g.moveTo(X(0), base);
+      for (var k = 0; k <= N; k++) g.lineTo(X(k / N), Y(f(k / N)));
+      g.lineTo(X(1), base); g.closePath();
+      g.fillStyle = "#f6f4ee"; g.fill();
+
+      // the above-level region, coloured per component
+      for (var r = 0; r < runs.length; r++) {
+        var run = runs[r];
+        var col = runs.length > 1 ? (r === 0 ? TEAL : CLAY) : CLAY;
+        g.globalAlpha = 0.22;
+        g.beginPath();
+        g.moveTo(X(run.a), base);
+        for (var m = Math.ceil(run.a * N); m <= Math.floor(run.b * N); m++)
+          g.lineTo(X(m / N), Y(f(m / N)));
+        g.lineTo(X(run.b), base); g.closePath();
+        g.fillStyle = col; g.fill();
+        g.globalAlpha = 1;
+      }
+
+      // the curve itself
+      g.beginPath();
+      for (var k2 = 0; k2 <= N; k2++) {
+        var px = X(k2 / N), py = Y(f(k2 / N));
+        if (k2 === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokeStyle = INK; g.lineWidth = 2; g.stroke();
+
+      // the sweeping level
+      g.beginPath(); g.moveTo(pad - 8, Y(level)); g.lineTo(w - pad + 8, Y(level));
+      g.setLineDash([5, 5]); g.strokeStyle = "#9a958a"; g.lineWidth = 1.5; g.stroke();
+      g.setLineDash([]);
+
+      // valley marker
+      g.beginPath(); g.moveTo(X(0.5), Y(VALLEY)); g.lineTo(X(0.5), base);
+      g.strokeStyle = RULE; g.lineWidth = 1; g.stroke();
+
+      // state caption
+      var two = runs.length > 1;
+      g.font = "600 12px " + mono();
+      g.textAlign = "left";
+      g.fillStyle = two ? TEAL : CLAY;
+      g.fillText(runs.length === 0 ? "0 clusters" : (two ? "2 clusters" : "1 cluster"),
+                 pad, h - 14);
+      g.textAlign = "right";
+      g.fillStyle = MUTE;
+      g.fillText("level " + level.toFixed(2), w - pad, h - 14);
+
+      g.textAlign = "center";
+      g.fillStyle = MUTE;
+      g.font = "500 11px " + mono();
+      g.fillText("valley depth = persistence", X(0.5), h - 14);
+    };
+    loop(drawMerge, 0.30);    // static frame: level just above the valley
+    window.addEventListener("resize", function () { drawMerge(0.30); });
   }
 
-  function initParticles() {
-    particles = [];
-    for (var i = 0; i < NPART; i++) {
-      var p = {};
-      resetParticle(p);
-      p.s = (i / NPART) * nodes.total;   // even spread on first frame
-      particles.push(p);
-    }
-  }
-
-  function drawNode(n) {
-    var emphasised = active === n.k || hover === n.k;
-    var isHot = n.k === "topology";
-    var stroke = emphasised ? C.amber : (isHot ? C.trace : "#3a4657");
-    var fill = emphasised ? "rgba(255,180,84,.16)"
-             : (isHot ? "rgba(102,224,255,.12)" : "rgba(255,255,255,.03)");
-
-    // square node (blueprint, not a bubble)
-    var r = n.r;
-    ctx.fillStyle = fill;
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = emphasised ? 2 : 1.2;
-    ctx.beginPath();
-    ctx.rect(n.x - r, n.y - r, r * 2, r * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // resident-bytes bar under the node
-    var bw = Math.max(4, n.r * 2);
-    var bh = 3;
-    var frac = n.weight / 100;
-    ctx.fillStyle = "#232a33";
-    ctx.fillRect(n.x - bw / 2, n.y + r + 8, bw, bh);
-    ctx.fillStyle = isHot ? C.trace : C.amber;
-    ctx.fillRect(n.x - bw / 2, n.y + r + 8, bw * frac, bh);
-
-    // labels
-    ctx.textAlign = "center";
-    ctx.font = "11px ui-monospace, Menlo, monospace";
-    ctx.fillStyle = emphasised ? C.amber : C.paper;
-    ctx.fillText(n.nm, n.x, n.y + r + 26);
-    ctx.font = "10px ui-monospace, Menlo, monospace";
-    ctx.fillStyle = isHot ? C.trace : C.dim;
-    ctx.fillText(n.bytes, n.x, n.y + r + 41);
-  }
-
-  function draw(t) {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = C.ink;
-    ctx.fillRect(0, 0, W, H);
-
-    // faint vertical guides
-    ctx.strokeStyle = C.rule;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    nodes.forEach(function (n) {
-      ctx.moveTo(n.x, 34);
-      ctx.lineTo(n.x, H - 42);
-    });
-    ctx.stroke();
-
-    // the rail
-    ctx.beginPath();
-    ctx.moveTo(nodes[0].x, nodes[0].y);
-    for (var i = 1; i < nodes.length; i++) ctx.lineTo(nodes[i].x, nodes[i].y);
-    ctx.strokeStyle = "#2a323d";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // particles
-    for (var j = 0; j < particles.length; j++) {
-      var p = particles[j];
-      var pos = pointAt(p.s);
-      var tail = pointAt(p.s - 16);
-      ctx.strokeStyle = "rgba(102,224,255," + p.alpha.toFixed(2) + ")";
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(tail.x, tail.y);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-    }
-
-    nodes.forEach(drawNode);
-
-    // caption
-    ctx.textAlign = "left";
-    ctx.font = "10px ui-monospace, Menlo, monospace";
-    ctx.fillStyle = C.dim;
-    ctx.fillText("data flow →", 14, 20);
-    ctx.textAlign = "right";
-    ctx.fillStyle = C.trace;
-    ctx.fillText("particles slow where bytes are resident", W - 14, 20);
-
-    // header
-    ctx.textAlign = "left";
-    ctx.font = "11px ui-monospace, Menlo, monospace";
-    ctx.fillStyle = C.paper;
-    ctx.fillText("resident bytes per stage", 14, H - 16);
-    ctx.fillStyle = C.hot;
-    ctx.fillText("● topology ≈ 18.3 MB — the largest transient in the pipeline", 14, H - 2);
-  }
-
-  var last = 0;
-  function tick(ts) {
-    if (!last) last = ts;
-    var dt = Math.min(0.05, (ts - last) / 1000);
-    last = ts;
-
-    for (var i = 0; i < particles.length; i++) {
-      var p = particles[i];
-      p.s += p.base * speedAt(p.s) * dt;
-      if (p.s >= nodes.total) { p.s = 0; resetParticle(p); p.s = 0; }
-    }
-    draw(ts);
-    requestAnimationFrame(tick);
-  }
-
-  function resize() {
-    var cssW = canvas.clientWidth || W;
-    var scale = cssW / W;
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
-    canvas.style.height = (H * scale) + "px";
-  }
-
-  // interaction: stage rows emphasise their node
-  var rows = document.querySelectorAll(".stage");
-  rows.forEach(function (row) {
-    var k = row.getAttribute("data-k");
-    row.addEventListener("mouseenter", function () { hover = k; });
-    row.addEventListener("mouseleave", function () { if (hover === k) hover = null; });
-    row.addEventListener("click", function () {
-      active = (active === k) ? null : k;
-      rows.forEach(function (r) { r.classList.toggle("active", r.getAttribute("data-k") === active); });
-    });
-  });
-
-  var yr = document.getElementById("yr");
-  if (yr) yr.textContent = new Date().getFullYear();
-
-  layout();
-  initParticles();
-  resize();
-  window.addEventListener("resize", function () { resize(); draw(0); });
-
-  if (reduced) {
-    // one static frame, particles spread along the path
-    draw(0);
-  } else {
-    requestAnimationFrame(tick);
+  function mono() {
+    return 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
   }
 })();
