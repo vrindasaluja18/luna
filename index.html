@@ -97,6 +97,18 @@
           <a href="blog/">The note</a> says why, and what the phased plan is.
         </div>
       </div>
+
+      <div class="note reveal" style="margin-top:1.6rem">
+        <b>Phase 0 is done, and it changed two published numbers.</b> The DRAM map was measured on
+        real runs instead of estimated. The world is 800×800 = 640,000 cells, not 1.44&nbsp;M; the
+        Morse flood holds eight per-cell buffers alive at once, not six; and the headline
+        &ldquo;19&nbsp;MB peak RSS&rdquo; is <span class="mono">sim</span>, which never runs
+        topology — <span class="mono">navigate</span> peaks at 32&nbsp;MB. One dead knob
+        (<span class="mono">min_persistence</span>, documented at length and read by nothing) was
+        deleted. The blur was cut from five full-grid buffers to two and verified bit-identical —
+        and it did <em>not</em> move the process peak, because the peak is the flood. That is
+        reported, not hidden.
+      </div>
     </div>
   </section>
 
@@ -140,7 +152,7 @@
       <div class="pipeline reveal" style="margin-top:2rem">
         <div class="stage"><div class="idx">01</div><div class="name">SLAM</div><div class="desc">FAST corners, BRIEF descriptors, KLT flow, pose-graph optimisation.</div></div>
         <div class="stage"><div class="idx">02</div><div class="name">Mapping</div><div class="desc">Probabilistic occupancy grid with free-space completion and speckle filtering.</div></div>
-        <div class="stage"><div class="idx">03</div><div class="name">Topology</div><div class="desc">Morse complex: critical points, persistence filtering, corridor graph.</div></div>
+        <div class="stage"><div class="idx">03</div><div class="name">Topology</div><div class="desc">Morse complex: critical points, bottleneck-contrast room decomposition, corridor graph.</div></div>
         <div class="stage"><div class="idx">04</div><div class="name">Planning</div><div class="desc">Corridor-graph A* with grid-A* fallback, B-spline smoothing, verification.</div></div>
         <div class="stage"><div class="idx">05</div><div class="name">Control</div><div class="desc">Bicycle-model MPC with chance constraints from SLAM covariance.</div></div>
       </div>
@@ -334,8 +346,9 @@
             <caption>Resource budget</caption>
             <thead><tr><th>Metric</th><th>Value</th><th>Target</th></tr></thead>
             <tbody>
-              <tr><td class="num">peak RSS</td><td class="ok">19 MB</td><td class="mute">&lt; 5 GB</td></tr>
-              <tr><td class="num">sim duration</td><td>30 s</td><td class="mute">—</td></tr>
+              <tr><td class="num">peak RSS — <span class="mono">sim</span></td><td class="ok">19 MB</td><td class="mute">&lt; 5 GB</td></tr>
+              <tr><td class="num">peak RSS — <span class="mono">navigate</span></td><td class="ok">32 MB</td><td class="mute">&lt; 5 GB</td></tr>
+              <tr><td class="num">topology flood</td><td>18.3 MB</td><td class="mute">2.9 B/cell</td></tr>
             </tbody>
           </table>
         </div>

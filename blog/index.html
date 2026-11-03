@@ -76,12 +76,12 @@
       <button class="stage" data-k="mapping">
         <span class="nm">mapping</span><span class="bar" style="--w:26%"></span>
         <span class="meta">occupancy log-odds · clearance</span>
-        <span class="bytes">5.8 + 11.5 MB</span>
+        <span class="bytes">2.4 + 4.9 MB</span>
       </button>
       <button class="stage hot" data-k="topology">
         <span class="nm">topology</span><span class="bar" style="--w:100%"></span>
-        <span class="meta">Morse flood — 6 per-cell buffers alive at once</span>
-        <span class="bytes">~43 MB</span>
+        <span class="meta">Morse flood — 8 per-cell buffers alive at once</span>
+        <span class="bytes">18.3 MB</span>
       </button>
       <button class="stage" data-k="planning">
         <span class="nm">planning</span><span class="bar" style="--w:10%"></span>
@@ -96,7 +96,7 @@
     </div>
 
     <p class="note" id="stageNote">The ratio that matters isn't bytes — it's
-      <strong>bytes held per decision served</strong>. 43 MB of flood produces one corridor
+      <strong>bytes held per decision served</strong>. 18.3 MB of flood produces one corridor
       graph the planner queries once per plan. Driving that ratio down is the goal.</p>
   </section>
 
@@ -106,9 +106,9 @@
       know it.</p>
     <div class="codecard">
       <div class="codehead">include/luna/topology/morse.hpp</div>
-      <pre><code>Scalar min_persistence = 0.20;   <span class="cm">// declared, documented at length,
-                                 // never read. One occurrence in the repo:
-                                 // its own declaration.</span>
+      <pre><code><span class="cm">// was: Scalar min_persistence = 0.20;
+// declared, documented at length, read by nothing.
+// Deleted in Phase 0 — a false promise in the options struct.</span>
 
 Scalar min_bottleneck_contrast = 0.75;  <span class="cm">// what actually decides
                                         // "is this a room": a density
@@ -183,8 +183,8 @@ Scalar min_bottleneck_contrast = 0.75;  <span class="cm">// what actually decide
   <section>
     <h2>The plan</h2>
     <ol class="phases">
-      <li><span class="ph">Phase 0</span><span class="pd">Inventory and delete dead compute. Name the consumer of every buffer above 1 MB. No new maths.</span><span class="tag now">start here</span></li>
-      <li><span class="ph">Phase 1</span><span class="pd">The reward as a pure function of a recorded run: <span class="mono">scoreRun → {PE, HE, BD, task}</span>. No learning.</span><span class="tag">next</span></li>
+      <li><span class="ph">Phase 0</span><span class="pd"><b>Done.</b> Every buffer above 1 MB measured on a real run and its consumer named. <span class="mono">min_persistence</span> deleted — declared, documented, never read. Blur rewritten from 5 buffers to 2, verified bit-identical. The blur did <em>not</em> move the process peak; that is reported, not hidden.</span><span class="tag done">done</span></li>
+      <li><span class="ph">Phase 1</span><span class="pd">The reward as a pure function of a recorded run: <span class="mono">scoreRun → {PE, HE, BD, task}</span>. No learning.</span><span class="tag now">start here</span></li>
       <li><span class="ph">Phase 2</span><span class="pd">A store of seeded runs; the reward ranks routes across them.</span><span class="tag">research</span></li>
       <li><span class="ph">Phase 3</span><span class="pd">A bandit over route choices. “Learning” first becomes true here.</span><span class="tag">research</span></li>
       <li><span class="ph">Phase 4</span><span class="pd">Active SLAM — open the action space. Only if Phase 3 shows signal.</span><span class="tag">later</span></li>
