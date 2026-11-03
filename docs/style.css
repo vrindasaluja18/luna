@@ -3,18 +3,22 @@
    amber trace, monospace data. No gradients-as-decoration, no glass, no
    rounded-everything. */
 
+/* Palette matched to the project landing page (amber #ffb454 / cyan #66e0ff on
+   #07080a) so the blog reads as part of the same site. */
 :root {
-  --ink:      #0c1016;
-  --ink-2:    #121821;
-  --paper:    #d9dee6;
-  --dim:      #8b97a8;
-  --rule:     #222c3a;
-  --amber:    #e8a33d;
-  --amber-lo: #7a5620;
-  --trace:    #5ec8c8;
-  --warn:     #d8695a;
-  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --ink:      #07080a;
+  --ink-2:    #12161b;
+  --paper:    #e9edf2;
+  --dim:      #aab4c0;
+  --dim-2:    #6d7885;
+  --rule:     #232a33;
+  --amber:    #ffb454;
+  --amber-lo: #a9762f;
+  --trace:    #66e0ff;
+  --warn:     #ff6b6b;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --serif: "Instrument Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --grid: 22px;
 }
 
@@ -31,7 +35,7 @@ body {
   background-size: var(--grid) var(--grid);
   background-position: -1px -1px;
   color: var(--paper);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 17px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
@@ -43,7 +47,7 @@ body {
 
 .hero {
   border-bottom: 1px solid var(--rule);
-  background: linear-gradient(180deg, rgba(232,163,61,.06), transparent 70%);
+  background: linear-gradient(180deg, rgba(255,180,84,.06), transparent 70%);
   padding: 5rem 0 3rem;
 }
 .kicker {
@@ -56,6 +60,7 @@ body {
 }
 .hero h1 {
   font-family: var(--serif);
+  font-weight: 400;
   font-size: clamp(2.6rem, 7vw, 4.4rem);
   line-height: 1.02;
   margin: 0 0 1rem;
@@ -83,7 +88,7 @@ h2 {
 }
 h2::before { content: "§ "; color: var(--amber); }
 
-h3 { font-family: var(--serif); font-size: 1.18rem; margin: 0 0 .5rem; font-weight: 600; }
+h3 { font-family: var(--sans); font-size: 1.05rem; margin: 0 0 .5rem; font-weight: 600; letter-spacing: -.01em; }
 
 p { margin: 0 0 1.1rem; }
 .lede { font-size: 1.06rem; color: var(--dim); }
@@ -94,7 +99,7 @@ p { margin: 0 0 1.1rem; }
   font-size: 1.06rem;
 }
 
-a { color: var(--trace); text-decoration: none; border-bottom: 1px solid rgba(94,200,200,.3); }
+a { color: var(--trace); text-decoration: none; border-bottom: 1px solid rgba(102,224,255,.3); }
 a:hover { border-bottom-color: var(--trace); }
 
 em { font-style: italic; }
@@ -126,7 +131,7 @@ blockquote {
 
 .flow {
   border: 1px solid var(--rule);
-  background: #090d12;
+  background: #0a0c0f;
   margin: 0 0 1.4rem;
 }
 #flowCanvas { display: block; width: 100%; height: auto; }
@@ -166,14 +171,14 @@ blockquote {
 
 /* ---------- code ---------- */
 
-.codecard { border: 1px solid var(--rule); background: #090d12; margin: 0 0 1.4rem; }
+.codecard { border: 1px solid var(--rule); background: #0a0c0f; margin: 0 0 1.4rem; }
 .codehead {
   font-family: var(--mono); font-size: .7rem; color: var(--dim);
   padding: .5rem .9rem; border-bottom: 1px solid var(--rule);
 }
 .codecard pre { margin: 0; padding: 1rem 1.1rem; overflow-x: auto; }
 .codecard code { font-size: .82rem; line-height: 1.7; color: var(--paper); }
-.cm { color: #5b6b7d; font-style: italic; }
+.cm { color: #6d7885; font-style: italic; }
 
 /* ---------- tables ---------- */
 
@@ -183,10 +188,10 @@ blockquote {
   color: var(--dim); text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rule);
 }
 .tbl td { padding: .6rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
-.tbl td.mono { font-size: .82rem; color: #c3cbd6; }
+.tbl td.mono { font-size: .82rem; color: #d5dbe3; }
 .tbl .yes { color: var(--trace); font-size: .8rem; }
 .tbl .no  { color: var(--warn); font-size: .8rem; }
-.tbl tr.miss td { background: rgba(216,105,90,.06); }
+.tbl tr.miss td { background: rgba(255,107,107,.06); }
 
 /* ---------- phases ---------- */
 
@@ -218,3 +223,11 @@ footer p { font-family: var(--mono); font-size: .74rem; color: var(--dim); margi
 @media (prefers-reduced-motion: reduce) {
   .stage .bar { transition: none; }
 }
+
+/* ---------- blog backlink ---------- */
+.backlink { margin: 0 0 1.6rem; }
+.backlink a {
+  font-family: var(--mono); font-size: .76rem; letter-spacing: .06em;
+  border-bottom: none; color: var(--dim);
+}
+.backlink a:hover { color: var(--amber); }

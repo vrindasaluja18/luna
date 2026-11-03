@@ -26,13 +26,13 @@
   ];
 
   var C = {
-    ink:   "#090d12",
-    rule:  "#1b2431",
-    dim:   "#8b97a8",
-    paper: "#d9dee6",
-    amber: "#e8a33d",
-    trace: "#5ec8c8",
-    hot:   "#e8a33d"
+    ink:   "#0a0c0f",
+    rule:  "#232a33",
+    dim:   "#aab4c0",
+    paper: "#e9edf2",
+    amber: "#ffb454",
+    trace: "#66e0ff",
+    hot:   "#ffb454"
   };
 
   var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -112,8 +112,8 @@
     var emphasised = active === n.k || hover === n.k;
     var isHot = n.k === "topology";
     var stroke = emphasised ? C.amber : (isHot ? C.trace : "#3a4657");
-    var fill = emphasised ? "rgba(232,163,61,.16)"
-             : (isHot ? "rgba(94,200,200,.12)" : "rgba(255,255,255,.03)");
+    var fill = emphasised ? "rgba(255,180,84,.16)"
+             : (isHot ? "rgba(102,224,255,.12)" : "rgba(255,255,255,.03)");
 
     // square node (blueprint, not a bubble)
     var r = n.r;
@@ -129,7 +129,7 @@
     var bw = Math.max(4, n.r * 2);
     var bh = 3;
     var frac = n.weight / 100;
-    ctx.fillStyle = "#1b2431";
+    ctx.fillStyle = "#232a33";
     ctx.fillRect(n.x - bw / 2, n.y + r + 8, bw, bh);
     ctx.fillStyle = isHot ? C.trace : C.amber;
     ctx.fillRect(n.x - bw / 2, n.y + r + 8, bw * frac, bh);
@@ -164,7 +164,7 @@
     ctx.beginPath();
     ctx.moveTo(nodes[0].x, nodes[0].y);
     for (var i = 1; i < nodes.length; i++) ctx.lineTo(nodes[i].x, nodes[i].y);
-    ctx.strokeStyle = "#26313f";
+    ctx.strokeStyle = "#2a323d";
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
@@ -173,7 +173,7 @@
       var p = particles[j];
       var pos = pointAt(p.s);
       var tail = pointAt(p.s - 16);
-      ctx.strokeStyle = "rgba(94,200,200," + p.alpha.toFixed(2) + ")";
+      ctx.strokeStyle = "rgba(102,224,255," + p.alpha.toFixed(2) + ")";
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.moveTo(tail.x, tail.y);
