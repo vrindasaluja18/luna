@@ -409,17 +409,8 @@ The first two phases are the blog. The last two are the research.
 
 ## Credit
 
-The framing here -- topological memory, persistence as the currency, islands and
-the connections between them, the discipline of classical systems and Linux-style
-memory management, the use of game theory and reinforcement learning as lenses
--- is my teacher's, not mine. His public work is the reason I can see any of
-this; I read his READMEs and the comments at the tops of his files the way one
-reads a reference. *[citation: his blog / personal site / the specific posts on
-clustering and on liquid memory -- to be filled in, with his permission, before
-this is published.]*
-
-What is mine, if anything, is the application: the observation that a CPU SLAM
-stack already computes persistence-based clustering without having named it, and
-that the same quantity can be made to govern its memory and its reward. That is
-a small thing next to the framing. But it is a true thing, and I can measure it,
-which is the only reason I am willing to publish it.
+The framing -- topological memory, persistence as the currency, islands and
+their connections, classical-systems discipline -- is from
+[Teerth Sharma](https://github.com/teerthsharma). The application is mine: a CPU
+SLAM stack already computes persistence-based clustering without having named
+it, and the same quantity can be made to govern its memory and its reward.

@@ -103,8 +103,7 @@ last phase, not the first. See the plan at the end of the blog post.
 ## Credit
 
 The framing -- topological memory, persistence as the currency, islands and
-their connections, the classical-systems discipline -- is not original to this
-project. It comes from a teacher whose public work is cited in
-`docs/blog/01-liquid-memory.md`. The contribution here is the *application*:
-showing that a CPU SLAM stack already computes persistence-based clustering and
-can be made to spend its memory on the same quantity.
+their connections -- is from [Teerth Sharma](https://github.com/teerthsharma).
+The application is this project's: a CPU SLAM stack already computes
+persistence-based clustering and can be made to spend its memory on the same
+quantity.
